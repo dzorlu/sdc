@@ -1,2 +1,1 @@
-# sdc
-Self-Driving Car Repo
+the repository for self-driving car projects
