@@ -9,7 +9,7 @@ Although Udacity provides dataset to get something working off the bat, I quickl
 
 There is nothing novel about the model I have used. The model normalizes the input layer akin to the normalization layer in the [NVIDIA](https://arxiv.org/abs/1604.07316) model. It is a standard CNN that has three convolutional layers, each of which followed by 2x2 max pooling. Convolutional layers are followed by three fully connected layers. Because the fully connected layers have a large capacity, L2 norm is used to battle overfitting. Activation layers are all RELU layers. I used Adam optimizer, which attempts to apply best of both worlds - momentum and varying learning rates for each parameter. Because the prediction is the steering angle of the car, the error rate is defined as mean squared error.
 
-`
+```
 model = Sequential()
 model.add(Lambda(lambda x: x/255.-0.5,input_shape=self.input_shape))
 model.add(Convolution2D(16, f1, f1, input_shape=(32, 128, 3), activation='relu', border_mode='same'))
@@ -24,7 +24,7 @@ model.add(Dense(self.n_fc//2, W_regularizer=l2(self.l2_reg), activation='relu'))
 model.add(Dense(self.n_fc//4, W_regularizer=l2(self.l2_reg), activation='relu'))
 model.add(Dense(1))
 model.compile(optimizer=optimizers.Adam(lr=1e-04), loss="mse")
-`
+```
 
 The code details can be found under the `model` folder.
 
