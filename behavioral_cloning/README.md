@@ -7,9 +7,26 @@ Although Udacity provides dataset to get something working off the bat, I quickl
 
 ##The Model
 
-There is nothing novel about the model I have used. The model normalizes the input layer akin to that in NVIDIA model. It is a standard CNN that has three convolutional layers, each of which followed by 2x2 max pooling. Convolutional layers are followed by three fully connected layers. Because the fully connected layers have a large capacity, L2 norm is used to battle overfitting. Activation layers are all RELU layers. I used Adam optimizer, which attempts to apply best of both worlds - momentum and varying learning rates for each parameter. Because the prediction is the steering angle of the car, the error rate is defined as mean squared error.
+There is nothing novel about the model I have used. The model normalizes the input layer akin to the normalization layer in the [NVIDIA](https://arxiv.org/abs/1604.07316) model. It is a standard CNN that has three convolutional layers, each of which followed by 2x2 max pooling. Convolutional layers are followed by three fully connected layers. Because the fully connected layers have a large capacity, L2 norm is used to battle overfitting. Activation layers are all RELU layers. I used Adam optimizer, which attempts to apply best of both worlds - momentum and varying learning rates for each parameter. Because the prediction is the steering angle of the car, the error rate is defined as mean squared error.
 
-The code details can be found under `model` folder.
+`
+model = Sequential()
+model.add(Lambda(lambda x: x/255.-0.5,input_shape=self.input_shape))
+model.add(Convolution2D(16, f1, f1, input_shape=(32, 128, 3), activation='relu', border_mode='same'))
+model.add(MaxPooling2D(pool_size=self.pool_size))
+model.add(Convolution2D(32, f2, f2, activation='relu', border_mode='same'))
+model.add(MaxPooling2D(pool_size=self.pool_size))
+model.add(Convolution2D(64, f3, f3, activation='relu', border_mode='same'))
+model.add(MaxPooling2D(pool_size=self.pool_size))
+model.add(Flatten())
+model.add(Dense(self.n_fc, W_regularizer=l2(self.l2_reg), activation='relu'))
+model.add(Dense(self.n_fc//2, W_regularizer=l2(self.l2_reg), activation='relu'))
+model.add(Dense(self.n_fc//4, W_regularizer=l2(self.l2_reg), activation='relu'))
+model.add(Dense(1))
+model.compile(optimizer=optimizers.Adam(lr=1e-04), loss="mse")
+`
+
+The code details can be found under the `model` folder.
 
 ##Data Generation
 
@@ -23,4 +40,10 @@ The data generator closely resembles that of Keras. The reason why I built a new
 
 In all, the training data has close to 50,000 images including left and right camera angles.
 
-The code details can be found under `data_generator` folder.
+The code details can be found under the `data_generator` folder.
+
+
+#Test Results
+[![Easy Road](https://raw.github.com/GabLeRoux/WebMole/master/ressources/WebMole_Youtube_Video.png)](http://youtu.be/vt5fpE0bzSY)
+
+[![High Road](https://raw.github.com/GabLeRoux/WebMole/master/ressources/WebMole_Youtube_Video.png)](http://youtu.be/vt5fpE0bzSY)
