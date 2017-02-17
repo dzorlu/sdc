@@ -44,6 +44,6 @@ The code details can be found under the `data_generator` folder.
 
 
 #Test Results
-[![Easy Road](https://raw.github.com/GabLeRoux/WebMole/master/ressources/WebMole_Youtube_Video.png)](http://youtu.be/vt5fpE0bzSY)
+[![Easy Road]()
 
-[![High Road](https://raw.github.com/GabLeRoux/WebMole/master/ressources/WebMole_Youtube_Video.png)](http://youtu.be/vt5fpE0bzSY)
+[![High Road]()
