@@ -2,7 +2,7 @@
 
 The goal of the exercise is to get a car to drive autonomously in a simulated setting. Udacity provides the simulator, which includes two tracks that the model can be trained on. First track is easier. Second track includes hills, tight turns, shadows on the road, bridges etc, which makes it harder to navigate.
 
-Although Udacity provides dataset to get something working off the bat, I quickly realized that I not only need to collect more data through the simulator, but also augment and preprocess the data in smart ways to keep the car on the track and out of harms way.
+Although Udacity provides the [dataset](https://d17h27t6h515a5.cloudfront.net/topher/2016/December/584f6edd_data/data.zip) to get something working off the bat, I quickly realized that I not only need to collect more data through the simulator, but also augment and preprocess the data in smart ways to keep the car on the track and out of harms way.
 
 
 ##The Model
@@ -26,13 +26,17 @@ model.add(Dense(1))
 model.compile(optimizer=optimizers.Adam(lr=1e-04), loss="mse")
 ```
 
+The model is trained over 50 epochs. In each epoch, I generated 5000 images.
+
 The code details can be found under the `model` folder.
 
 ##Data Generation
 
 The real meat of the project lies in data generation. In training mode, the simulator produces three images per each frame corresponding to right-, left-, and center-mounted cameras. Inclusion of right and left cameras is common trick used to teach the car to swirl back to center the road. In order to teach the model to swirl back to the center of the road, the recorded steering angle is adjusted appropriately. Additionally, I recorded extra data to provide data instances when the car is close to going off the road. By providing 'recovery' instances, we try to capture data on the tails of the steering angle distribution.
 
-I cropped off parts of the images that is not needed - roughly the bottom quartile and the top quartile. The brightness of the image is randomly distorted to provide a more diverse set of images. The images are symmetrical on the horizontal axis. That means we can double the size of the dataset simply by flipping the images left to right and vice versa. The adjustment happens to alleviate the bias in the training data somewhat.
+Images with ground truth values where steering angle is zero is overpresented in the dataset. This might be a problem in training such that the car might be unresponsive to turns. I chose to battle with this issue by smoothing the steering angle, mostly because my input into the simulator is not perfect. For example, I often have found myself letting go the wheel when the car is to much on one side. With smoothing, I attempt to make the ground truth more representative.
+
+I cropped off parts of the image that is not needed - roughly the bottom quartile and the top quartile. The brightness of the image is randomly distorted to provide a more diverse set of images. The images are symmetrical on the horizontal axis. That means we can double the size of the dataset simply by flipping the images left to right and vice versa. The adjustment happens to alleviate the bias in the training data somewhat. Last but not least, I applied some Gaussian smoothing.
 
 The second track is particularly hilly. The hilliness is manifested in the image data akin to some perspective transformation. I introduced perspective transformation as part of the transformation pipeline to be able to account for this phenomenon.
 

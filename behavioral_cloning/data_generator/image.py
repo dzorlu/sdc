@@ -7,8 +7,6 @@ import threading
 import os
 import matplotlib.pyplot as plt
 
-DEBUG = True
-
 def _random_flip(x, y):
     if np.random.random() < 0.5:
         x = np.fliplr(x)
@@ -21,6 +19,10 @@ def _random_brightness(img):
     image1[:,:,2] = image1[:,:,2] * random_bright
     image1 = cv2.cvtColor(image1,cv2.COLOR_HSV2RGB)
     return image1
+
+def _gaussian_blur(img, kernel_size=3):
+    """Applies a Gaussian Noise kernel"""
+    return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
 
 def _crop_image(x, output_shape):
     return cv2.resize(x[40:140,:,:], (output_shape[1], output_shape[0]))
@@ -57,12 +59,17 @@ class ImageDataGenerator(object):
         self.shift_degree = 22.5
         self.lock = threading.Lock()
         self.root_path = root_path
-        self.filenames = os.listdir(root_path)
+        self.filenames = self.get_image_filenames(self.root_path)
         self.batch_index = 0
         self.N = len(self.target_map.keys())
         self.index_generator = self._flow_index(self.N, batch_size, shuffle)
         self.y_hist = []
         self.training = training
+
+    def get_image_filenames(self, root_path):
+        # Target map is a filterd list of images.
+        # We do not want to use *all* the images
+        return [file_name for file_name in os.listdir(root_path) if file_name in self.target_map]
 
     def reset(self):
         self.batch_index = 0
@@ -97,7 +104,10 @@ class ImageDataGenerator(object):
             y = self.target_map[fname]
 
             if self.training:
-                # Flip LR + perspective transformation
+                # Flip LR +
+                # perspective transformation
+                # Gaussian blur
+                # brigthness random
                 x, y = self.transform(x, y)
             # Preprocess
             x = self.preprocess(x)
@@ -113,9 +123,12 @@ class ImageDataGenerator(object):
         return _file_to_image(self.root_path, fname)
 
     def transform(self, x, y):
+        x = self.gaussian_blur(x)
         x,y = self.random_flip(x, y)
         x = self.random_brightness(x)
         x = self.random_vertical_shift(x)
+        # print(x)
+        # print(y)
         return x, y
 
     def random_flip(self, x, y):
@@ -123,6 +136,9 @@ class ImageDataGenerator(object):
 
     def random_brightness(self, x):
         return _random_brightness(x)
+
+    def gaussian_blur(self, x):
+        return _gaussian_blur(x)
 
     def random_vertical_shift(self, x):
         h,w,_ = x.shape
@@ -143,3 +159,6 @@ class ImageDataGenerator(object):
 
     def mean_substract(self, x):
         return _mean_substract(x, self.rescale)
+
+    # def line_detection(self, x):
+    #     return _line_detection(x)
