@@ -7,6 +7,8 @@ import threading
 import os
 import matplotlib.pyplot as plt
 
+CROP_REGION = (60,140)
+
 def _random_flip(x, y):
     if np.random.random() < 0.5:
         x = np.fliplr(x)
@@ -25,15 +27,14 @@ def _gaussian_blur(img, kernel_size=3):
     return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
 
 def _crop_image(x, output_shape):
-    return cv2.resize(x[40:140,:,:], (output_shape[1], output_shape[0]))
+    return cv2.resize(x[CROP_REGION[0]:CROP_REGION[1],:,:], (output_shape[1], output_shape[0]))
 
 def _mean_substract(x, rescale):
     return x / rescale - 0.5
 
-def _preprocess(x, rescale, output_shape):
+def _preprocess(x, output_shape):
     #print(x.shape)
     x = _crop_image(x, output_shape)
-    #x = _mean_substract(x, rescale)
     return x
 
 def _file_to_image(root_path, fname):
@@ -55,7 +56,7 @@ class ImageDataGenerator(object):
         self.output_shape = output_shape
         self.input_shape = input_shape
         self.batch_size = batch_size
-        self.rescale = 1./255
+        self.rescale = 1./255 #not used
         self.shift_degree = 22.5
         self.lock = threading.Lock()
         self.root_path = root_path
@@ -152,13 +153,10 @@ class ImageDataGenerator(object):
         return cv2.warpPerspective(x, M, (w,h), borderMode=cv2.BORDER_REPLICATE)
 
     def preprocess(self, x):
-        return _preprocess(x, self.rescale, self.output_shape)
+        return _preprocess(x, self.output_shape)
 
     def crop_image(self, x):
         return _crop_image(x, self.output_shape)
 
     def mean_substract(self, x):
         return _mean_substract(x, self.rescale)
-
-    # def line_detection(self, x):
-    #     return _line_detection(x)
