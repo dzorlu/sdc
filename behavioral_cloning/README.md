@@ -20,15 +20,16 @@ model.add(Convolution2D(32, f2, f2, activation='relu', border_mode='same'))
 model.add(MaxPooling2D(pool_size=self.pool_size))
 model.add(Convolution2D(64, f3, f3, activation='relu', border_mode='same'))
 model.add(MaxPooling2D(pool_size=self.pool_size))
+model.add(Convolution2D(64, f3, f3, activation='relu', border_mode='same'))
+model.add(MaxPooling2D(pool_size=self.pool_size))
 model.add(Flatten())
+model.add(Dropout(dropout_p))
 model.add(Dense(self.n_fc, W_regularizer=l2(self.l2_reg), activation='relu'))
 model.add(Dense(self.n_fc//2, W_regularizer=l2(self.l2_reg), activation='relu'))
-model.add(Dense(self.n_fc//4, W_regularizer=l2(self.l2_reg), activation='relu'))
 model.add(Dense(1))
-model.compile(optimizer=optimizers.Adam(lr=1e-04), loss="mse")
 ```
 
-The model is trained over 100 epochs. In each epoch, I generated 10000 images. The batch size is 256.
+The model is trained over 75 epochs. In each epoch, I generated 10000 images. The batch size is 256.
 
 The code details can be found under the `model` folder.
 
