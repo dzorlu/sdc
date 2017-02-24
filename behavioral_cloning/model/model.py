@@ -42,10 +42,12 @@ class CNNModel():
         model.add(MaxPooling2D(pool_size=self.pool_size))
         model.add(Convolution2D(64, f3, f3, activation='relu', border_mode='same'))
         model.add(MaxPooling2D(pool_size=self.pool_size))
+        model.add(Convolution2D(64, f3, f3, activation='relu', border_mode='same'))
+        model.add(MaxPooling2D(pool_size=self.pool_size))
         model.add(Flatten())
+        model.add(Dropout(dropout_p))
         model.add(Dense(self.n_fc, W_regularizer=l2(self.l2_reg), activation='relu'))
         model.add(Dense(self.n_fc//2, W_regularizer=l2(self.l2_reg), activation='relu'))
-        model.add(Dense(self.n_fc//4, W_regularizer=l2(self.l2_reg), activation='relu'))
         model.add(Dense(1))
 
         model.compile(optimizer=optimizers.Adam(lr=1e-04), loss="mse")
@@ -56,7 +58,7 @@ class CNNModel():
     def train(self, gen, batch_size, nb_epochs, val_gen):
         # returns a history object
         return self.model.fit_generator(gen,
-            samples_per_epoch= batch_size * 50 ,
+            samples_per_epoch= gen.batch_size * 50 ,
             nb_epoch = nb_epochs,
             validation_data = val_gen,
             nb_val_samples = batch_size * 5)
