@@ -2,13 +2,10 @@ import cv2
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
+import matplotlib.pyplot as plt
 
 LOW_THRESHOLD_CANNY = 100
-HIGH_THRESHOLD_CANNY = 200
-
-
-def _crop_image(x, output_shape):
-    return cv2.resize(x[40:140,:,:], (output_shape[1], output_shape[0]))
+HIGH_THRESHOLD_CANNY = 150
 
 def define_vertices(img):
     imshape = img.shape
@@ -60,7 +57,7 @@ def region_of_interest(img, vertices):
     return masked_image
 
 
-def draw_lines(img, lines, color=[255, 0, 0], thickness=1):
+def draw_lines(img, lines, color=[255, 0, 0], thickness=3):
     """
     Take lines as given. Next iteration goes throug some heuristics to merge the lines.
     """
@@ -102,11 +99,12 @@ def weighted_img(img, initial_img, α=0.8, β=1., λ=0.):
     """
     return cv2.addWeighted(initial_img, α, img, β, λ)
 
-def draw_lanes(image, lines, color= [255, 0, 0], thickness=10):
+def draw_lanes(image, lines, color= [255, 0, 0], thickness=2):
     image_shape  = image.shape
-    points_left, points_right = fit_lanes(lines, image_shape)
-    l, r = retrieve_min_max_points(points_left, points_right)
     line_img = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
+    points_left, points_right = fit_lanes(lines, image_shape)
+
+    l, r = retrieve_min_max_points(points_left, points_right)
     cv2.line(line_img, (l['x1'], l['y1']), (l['x2'], l['y2']), color, thickness)
     cv2.line(line_img, (r['x1'], r['y1']), (r['x2'], r['y2']), color, thickness)
     return line_img
@@ -127,16 +125,18 @@ def fit_lanes(lines, image_shape):
     left_points = np.array(list(filter(lambda x: x[0] < mid_point, points )))
     right_points = np.array(list(filter(lambda x: x[0] >= mid_point, points )))
     lr_left, lr_right = LinearRegression(), LinearRegression()
+
     lr_right.fit(right_points[:,0].reshape(-1,1), right_points[:,1].reshape(-1,1))
+    right_ys = lr_right.predict(right_xs).reshape(-1,)
+    right_xs = right_xs.reshape(-1,)
+    points_right = np.array(list(filter(lambda p: p[1] < image_shape[0], zip(right_xs,right_ys))))
+
     lr_left.fit(left_points[:,0].reshape(-1,1), left_points[:,1].reshape(-1,1))
     # prediction for left and right space
     left_ys = lr_left.predict(left_xs).reshape(-1,)
-    right_ys = lr_right.predict(right_xs).reshape(-1,)
     left_xs = left_xs.reshape(-1,)
-    right_xs = right_xs.reshape(-1,)
-    # trim ys
     points_left = np.array(list(filter(lambda p: p[1] < image_shape[0], zip(left_xs,left_ys))))
-    points_right = np.array(list(filter(lambda p: p[1] < image_shape[0], zip(right_xs,right_ys))))
+
     return points_left, points_right
 
 def retrieve_min_max_points(left, right):
@@ -150,21 +150,34 @@ def retrieve_min_max_points(left, right):
 
     return l, r
 
-def _line_detection(x, output_shape):
-    # Crop First
-    x = _crop_image(x, output_shape)
-    image = grayscale(x)
-    # Smoothing
-    image = gaussian_blur(image)
-    # Edge Detection
-    image_edges = canny(image,LOW_THRESHOLD_CANNY, HIGH_THRESHOLD_CANNY)
-    # Mask Image
-    vertices = define_vertices(image_edges)
-    masked_image = region_of_interest(image_edges, vertices)
-    # Find the Lines
-    lines = hough_lines(masked_image)
-    # Fit the Lanes
-    line_image = draw_lanes(image, lines)
-    # return Weighted Image
-    #wi = weighted_img(x, line_image )
-    return line_image
+def line_detection(x,padding=0):
+    x = x.astype(np.uint8)
+    # padding = x.shape[0] // 4
+    try:
+        #crop more
+        _x = x[padding:,:,:]
+        image = grayscale(_x)
+        # Smoothing
+        image = gaussian_blur(image)
+        # Edge Detection
+        image_edges = canny(image,LOW_THRESHOLD_CANNY, HIGH_THRESHOLD_CANNY)
+        # Mask Image
+        #vertices = define_vertices(image_edges)
+        #masked_image = region_of_interest(image_edges, vertices)
+        # Find the Lines
+        lines = hough_lines(image_edges)
+        # Fit the Lanes
+        line_image = draw_lanes(_x, lines)
+        #Pad it back
+        #print(line_image.shape)
+        line_image = pad(line_image, padding)
+        #print(line_image.shape)
+        x = weighted_img(x, line_image)
+        ##print("line appended")
+    except:
+        pass
+    return x
+
+def pad(x, padding):
+    npad = ((padding,0),(0,0),(0,0))
+    return np.pad(x, npad, mode='constant')

@@ -5,7 +5,8 @@ import cv2
 import numpy as np
 import threading
 import os
-import matplotlib.pyplot as plt
+
+from .line_detection import *
 
 CROP_REGION = (60,140)
 
@@ -26,15 +27,17 @@ def _gaussian_blur(img, kernel_size=3):
     """Applies a Gaussian Noise kernel"""
     return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
 
-def _crop_image(x, output_shape):
+def crop_image(x, output_shape):
     return cv2.resize(x[CROP_REGION[0]:CROP_REGION[1],:,:], (output_shape[1], output_shape[0]))
 
 def _mean_substract(x, rescale):
     return x / rescale - 0.5
 
-def _preprocess(x, output_shape):
-    #print(x.shape)
-    x = _crop_image(x, output_shape)
+def preprocess(x, output_shape,overlay_line = True):
+    x = crop_image(x, output_shape)
+    #Overlay the lines
+    # if overlay_line:
+    #     x = line_detection(x)
     return x
 
 def _file_to_image(root_path, fname):
@@ -103,16 +106,14 @@ class ImageDataGenerator(object):
             fname = self.filenames[j]
             x = self.file_to_image(fname)
             y = self.target_map[fname]
-
             if self.training:
                 # Flip LR +
                 # perspective transformation
                 # Gaussian blur
                 # brigthness random
                 x, y = self.transform(x, y)
-            # Preprocess
+            # Preprocess - crop and annota the lanes
             x = self.preprocess(x)
-
             batch_x[i,:,:] = x
             batch_y[i] = y
         return batch_x, batch_y
@@ -153,10 +154,10 @@ class ImageDataGenerator(object):
         return cv2.warpPerspective(x, M, (w,h), borderMode=cv2.BORDER_REPLICATE)
 
     def preprocess(self, x):
-        return _preprocess(x, self.output_shape)
+        return preprocess(x, self.output_shape)
 
     def crop_image(self, x):
-        return _crop_image(x, self.output_shape)
+        return crop_image(x, self.output_shape)
 
     def mean_substract(self, x):
         return _mean_substract(x, self.rescale)
