@@ -20,10 +20,6 @@ def detect_points(masked_image):
     return left_points, right_points
 
 
-def measure_curvature(_fit, ymax=720):
-    curverad = ((1 + (2*_fit[0]*ymax + _fit[1])**2)**1.5) / np.absolute(2*_fit[0])
-    return curverad
-
 def draw_lanes(image, lines, color= [255, 0, 0], thickness=10):
     # Create an image to draw the lines on
     warp_zero = np.zeros_like(warped).astype(np.uint8)
@@ -51,7 +47,7 @@ class Line(object):
         # y. does not change
         self.y = np.linspace(0,720,721)
         #average x values of the fitted line over the last n iterations
-        self.bestx = None
+        self.wx = None
         #polynomial coefficients averaged over the last n iterations
         self.best_fit = None
         #polynomial coefficients for the most recent fit
@@ -71,6 +67,7 @@ class Line(object):
         # 700 because it is the distance between lanes
         # meters per pixel in x dimension.
         self.xm_per_pix = 3.7/700
+        self.successfull_detection = 0
 
     def set_curve_radius(self, order=2):
         fit_cr = np.polyfit(self.y * self.ym_per_pix, self.x * self.xm_per_pix, order)
@@ -87,6 +84,13 @@ class Line(object):
         a,b,c = self.current_fit
         self.x = a * self.y**2 + b * self.y+ c
 
+    def set_weighted_x(self, w = 0.9):
+        # Initial state
+        if self.successfull_detection == 0:
+            self.wx = self.x
+        else:
+            self.wx = w * self.wx + (1-w) * self.x
+
     def set_base_position(self):
         """ Base position with respect to zero value on x-axis"""
         y_max = np.max(self.y)
@@ -94,20 +98,30 @@ class Line(object):
         self.base_position = a * y_max**2 + b * y_max + c
 
     def process_image(self, pts):
-        self.pts = pts
-        self.fit_poly_lanes()
-        self.set_fitted_x()
-        self.set_curve_radius()
-        self.set_base_position()
+        if len(pts)>0:
+            self.detected = True
+            self.pts = pts
+            self.fit_poly_lanes()
+            self.set_fitted_x()
+            self.set_weighted_x()
+            self.set_curve_radius()
+            self.set_base_position()
+            self.successfull_detection += 1
+        else:
+            self.detected = False
 
-def overlay_detected_lane(img, transformer, warped, left, right):
+def overlay_detected_lane(img, transformer, warped, left, right, show_weighted = True):
     # TODO: Apply it on undiscorted image
     warp_zero = np.zeros_like(warped).astype(np.uint8)
     color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    pts_left = np.array([np.transpose(np.vstack([left.x, left.y]))])
-    pts_right = np.array([np.flipud(np.transpose(np.vstack([right.x, right.y])))])
+    if show_weighted:
+        pts_left = np.array([np.transpose(np.vstack([left.wx, left.y]))])
+        pts_right = np.array([np.flipud(np.transpose(np.vstack([right.wx, right.y])))])
+    else:
+        pts_left = np.array([np.transpose(np.vstack([left.x, left.y]))])
+        pts_right = np.array([np.flipud(np.transpose(np.vstack([right.x, right.y])))])
     pts = np.hstack((pts_left, pts_right))
-    cv2.fillPoly(color_warp, np.int_([pts]), (255,255, 0))
+    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
     # Inverse Transformation
     M_inv = transformer.perspective_transformer.M_inv
     new_warp = cv2.warpPerspective(color_warp, M_inv, (warped.shape[1], warped.shape[0]))
@@ -116,20 +130,23 @@ def overlay_detected_lane(img, transformer, warped, left, right):
     # annotate curvature
     mean_curvature = np.mean([left.radius_of_curvature, right.radius_of_curvature])
     _str = "radius of curvature: {} km".format(round(mean_curvature / 1e3,2))
-    cv2.putText(new_img, _str, (10,30), FONT, 1,(255,255,255), 2, cv2.LINE_AA)
+    cv2.putText(new_img, _str, (10,40), FONT, 1,(255,255,255), 2, cv2.LINE_AA)
     # vehicle distance from the center of the image
-    _mid = abs((img.shape[1] / 2) - (left.base_position + right.base_position) / 2) * left.xm_per_pix
-    _str = "distance from center: {} cm".format(round(_mid, 3))
-    cv2.putText(new_img,_str, (10,60), FONT, 1,(255,255,255), 2, cv2.LINE_AA)
-    #vehicle_offset = (left.xm_per_pix * (img.shape[1] / 2) - _mid
+    _mid = abs((img.shape[1] / 2) - ((left.base_position + right.base_position) / 2)) * left.xm_per_pix
+    _str = "distance from center: {} m".format(round(_mid, 3))
+    cv2.putText(new_img, _str, (10,70), FONT, 1,(255,255,255), 2, cv2.LINE_AA)
+    # detection
+    _str = "lane detected? Left: {} Right: {}".format(left.detected, right.detected)
+    cv2.putText(new_img, _str, (10,100), FONT, 1,(255,255,255), 2, cv2.LINE_AA)
     return new_img
 
-def process_image(img, transformer, left, right):
+def process(img, transformer, left, right):
     warped_image = transformer.transform(img)
     left_points, right_points = detect_points(warped_image)
-    # update
+    # update.
+    # left and right are global variables
     left.process_image(left_points)
-    right.process_image(left_points)
+    right.process_image(right_points)
     # draw
     # Recast the x and y points into usable format for cv2.fillPoly()
     new_img = overlay_detected_lane(img, transformer, warped_image, left, right)
@@ -139,11 +156,11 @@ if __name__ == '__main__':
 
     in_file = arguments['<input_video>']
     out_file = arguments['<output_video>']
-
+    left, right = Line(), Line()
 
     print("Prepare the transformation pipeline for image preprocessing")
     transformer = setup_transformation_pipeline()
-    warp = partial(process_image, transformer = transformer, left = Line(), right = Line())
+    fun = lambda x: process(x, transformer, left, right)
 
     print('Processing video ...')
     clip2 = VideoFileClip(in_file)
