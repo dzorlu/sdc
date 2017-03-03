@@ -67,10 +67,12 @@ class Line(object):
         # 700 because it is the distance between lanes
         # meters per pixel in x dimension.
         self.xm_per_pix = 3.7/700
-        self.successfull_detection = 0
+        self.detection_count = (0,0) # True, False
+        self.rejected_images = 0
 
     def set_curve_radius(self, order=2):
-        fit_cr = np.polyfit(self.y * self.ym_per_pix, self.x * self.xm_per_pix, order)
+        """Curve Radius Based on Smoothed Lane Lines"""
+        fit_cr = np.polyfit(self.y * self.ym_per_pix, self.wx * self.xm_per_pix, order)
         y_max = np.max(self.y)
         curverad = ((1 + (2*fit_cr[0]*y_max + fit_cr[1])**2)**1.5) / abs(2*fit_cr[0])
         self.radius_of_curvature = curverad
@@ -86,28 +88,57 @@ class Line(object):
 
     def set_weighted_x(self, w = 0.9):
         # Initial state
-        if self.successfull_detection == 0:
+        if self.detection_count[0]<=1:
             self.wx = self.x
         else:
             self.wx = w * self.wx + (1-w) * self.x
 
-    def set_base_position(self):
+    def get_base_position(self):
         """ Base position with respect to zero value on x-axis"""
         y_max = np.max(self.y)
         a,b,c = self.current_fit
-        self.base_position = a * y_max**2 + b * y_max + c
+        return a * y_max**2 + b * y_max + c
+
+    def set_base_position(self, base_position):
+        """ Base position with respect to zero value on x-axis"""
+        self.base_position = base_position
+
+    def increment_detection_count(self, success=True):
+        """Increment the detection count - times input was available"""
+        _cnt = self.detection_count
+        if success:
+            self.detection_count = (_cnt[0]+1, _cnt[1])
+        else:
+            self.detection_count = (_cnt[0], _cnt[1]+1)
+
+    def evaluate_base_position(self, pixel_difference = 25):
+        """Reject Base 25 pxls apart from last detection"""
+        proposed_base = self.get_base_position()
+        if not self.base_position:
+            # for initilization
+            self.base_position = proposed_base
+            return True
+        if abs(proposed_base - self.base_position) < pixel_difference:
+            self.base_position = proposed_base
+            return True
+        else:
+            self.rejected_images += 1
+            return False
 
     def process_image(self, pts):
         if len(pts)>0:
-            self.detected = True
+            self.increment_detection_count(True)
             self.pts = pts
             self.fit_poly_lanes()
-            self.set_fitted_x()
-            self.set_weighted_x()
-            self.set_curve_radius()
-            self.set_base_position()
-            self.successfull_detection += 1
+            """If rejected, do not predict x"""
+            if self.evaluate_base_position():
+                self.set_fitted_x()
+                self.set_weighted_x()
+                self.set_curve_radius()
+                self.detected = True
         else:
+            # No points are found in preprocessing. hence skipping
+            self.increment_detection_count(False)
             self.detected = False
 
 def overlay_detected_lane(img, transformer, warped, left, right, show_weighted = True):

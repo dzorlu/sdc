@@ -103,7 +103,7 @@ def gray_thresholding(img, threshold=(130,255)):
 
 def define_vertices(img):
     imshape = img.shape
-    vertices = np.array([[(0,imshape[0]), (imshape[1]/2., imshape[0]/2.), (imshape[1],imshape[0])]], dtype=np.int32)
+    vertices = np.array([[(0,imshape[0]), (imshape[1]/2., 3*imshape[0]/5.), (imshape[1],imshape[0])]], dtype=np.int32)
     if vertices.shape[1]:
         vertices = [vertices]
     return vertices
@@ -136,7 +136,7 @@ def region_of_interest(img):
     masked_image[crop,:] = 0
     return masked_image
 
-def lane_masking(img):
+def lane_masking(img, threshold = 25):
     img = gaussian_blur(img)
 
     s_binary = hls_thresholding(img, 2)
@@ -144,7 +144,37 @@ def lane_masking(img):
     laplacian_binary = laplacian_thresholding(img)
     # AND following OR gate
     combined_binary = cv2.bitwise_and(laplacian_binary, cv2.bitwise_or(s_binary, gray_binary))
-    return combined_binary
+    # Region of interest
+    filtered_binary = region_of_interest(combined_binary)
+    # If one side is not detected apply x AND y on that side
+    # This happens after histogram filtering and region of interest
+    _hist = filtered_binary.sum(axis=0)
+    middlepoint = filtered_binary.shape[1] // 2
+    _left_pixel_sum, _right_pixel_sum = _hist[:middlepoint].sum(), _hist[middlepoint:].sum()
+    if _left_pixel_sum < threshold or _right_pixel_sum < threshold:
+        print("appending additional binary masking")
+        _second_pass_binary = post_lane_masking(img)
+        filtered_second_pass = region_of_interest(_second_pass_binary)
+        filtered_binary = cv2.bitwise_or(filtered_binary, filtered_second_pass)
+    plt.imshow(filtered_binary)
+    return filtered_binary
+
+def post_lane_masking(img):
+    x_binary = sobel_thresholding(img)
+    y_binary = sobel_thresholding(img,dim='y')
+    x_y_binary = cv2.bitwise_and(x_binary, y_binary)
+    return x_y_binary
+
+def histogram_filter(img, offset = 50):
+    filtered = img.copy()
+    _hist = filtered.sum(axis=0)
+    middlepoint = filtered.shape[1] // 2
+    left_max_ix, right_max_ix = _hist[:middlepoint].argmax(), _hist[middlepoint:].argmax() + middlepoint
+    left_range, right_range = (left_max_ix - offset, left_max_ix + offset), (right_max_ix - offset, right_max_ix + offset)
+    filtered[:,:left_range[0]] = 0
+    filtered[:,left_range[1]:right_range[0]] = 0
+    filtered[:,right_range[1]:] = 0
+    return filtered
 
 def fit_lanes(masked_image):
     # determine the mid point along x-axis
@@ -175,7 +205,7 @@ def fit_lanes(masked_image):
     return points_left, points_right
 
 def retrieve_src_points(left, right, shape):
-    y_cutoff = 7 * shape // 10
+    y_cutoff = 65 * shape // 100
     left_cutoff_ix = (left[:,1] > y_cutoff).nonzero()[0].max()
     right_cutoff_ix = (right[:,1] > y_cutoff).nonzero()[0].min()
     p1, p2 = left[left_cutoff_ix,], right[right_cutoff_ix,]
@@ -189,17 +219,6 @@ def retrieve_src_points(left, right, shape):
     r1, r2 = np.array([int(right[:,0].max()), int(right[:,1].max())]), p2
 
     return np.float32([l1, l2, r1, r2])
-
-def histogram_filter(img, offset = 50):
-    filtered = img.copy()
-    _hist = filtered.sum(axis=0)
-    middlepoint = filtered.shape[1] // 2
-    left_max_ix, right_max_ix = _hist[:middlepoint].argmax(), _hist[middlepoint:].argmax() + middlepoint
-    left_range, right_range = (left_max_ix - offset, left_max_ix + offset), (right_max_ix - offset, right_max_ix + offset)
-    filtered[:,:left_range[0]] = 0
-    filtered[:,left_range[1]:right_range[0]] = 0
-    filtered[:,right_range[1]:] = 0
-    return filtered
 
 def setup_transformation_pipeline(offset=10):
     """
@@ -243,10 +262,11 @@ class TransformationPipeline():
 
     def transform(self, img):
         _img = self.undistort_image(img)
+        # depending on the avail of filtered_warped_image apply another round of masking
         binary_img = self.lane_masking(_img)
-        binary_img_filtered = self.region_of_interest(binary_img)
-        warped_image = self.perspective_transform(binary_img_filtered)
+        warped_image = self.perspective_transform(binary_img)
         filtered_warped_image = self.histogram_filter(warped_image)
+
         return filtered_warped_image
 
     def undistort_image(self, img):
@@ -254,6 +274,9 @@ class TransformationPipeline():
 
     def lane_masking(self, img):
         return lane_masking(img)
+
+    def post_lane_masking(self, img, warped):
+        return post_lane_masking(img, warped)
 
     def region_of_interest(self, img):
         # Filters the image for the lower trapezoid
