@@ -6,6 +6,7 @@ from sklearn.linear_model import LinearRegression
 from functools import partial
 
 from image_transformation import *
+from kalman_filters import KalmanFilter1D
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -38,8 +39,15 @@ def draw_lanes(image, lines, color= [255, 0, 0], thickness=10):
     return newwarp
 
 
-class Line(object):
-    def __init__(self):
+class Line(KalmanFilter1D):
+    """
+    Line is a state that keeps track of lane elements using 1D Kalman Filters
+    Computes the radius of the curvature after fitting polynomial lanes.
+
+    Reject outliers.
+
+    """
+    def __init__(self, initial_state = 1280 // 4, process_noise = 1, measurement_noise = 10):
         # was the line detected in the last iteration?
         self.detected = False
         # fitted x values of the last n fits of the line
@@ -69,6 +77,10 @@ class Line(object):
         self.xm_per_pix = 3.7/700
         self.detection_count = (0,0) # True, False
         self.rejected_images = 0
+        ##Kalman Filter
+        self.kalman_state = KalmanFilter1D(initial_state, linear_state, process_noise)
+        super(Line, self).__init__(**kwargs)
+
 
     def set_curve_radius(self, order=2):
         """Curve Radius Based on Smoothed Lane Lines"""
@@ -86,12 +98,14 @@ class Line(object):
         a,b,c = self.current_fit
         self.x = a * self.y**2 + b * self.y+ c
 
-    def set_weighted_x(self, w = 0.9):
+    def update(self):
+        self.x
         # Initial state
-        if self.detection_count[0]<=1:
-            self.wx = self.x
-        else:
-            self.wx = w * self.wx + (1-w) * self.x
+        # if self.detection_count[0]<=1:
+        #     self.wx = self.x
+        # else:
+        #     self.wx = w * self.wx + (1-w) * self.x
+
 
     def get_base_position(self):
         """ Base position with respect to zero value on x-axis"""
@@ -130,10 +144,12 @@ class Line(object):
             self.increment_detection_count(True)
             self.pts = pts
             self.fit_poly_lanes()
+            """Filter"""
             """If rejected, do not predict x"""
             if self.evaluate_base_position():
                 self.set_fitted_x()
-                self.set_weighted_x()
+                # kalman update baseline next step
+                self.update()
                 self.set_curve_radius()
                 self.detected = True
         else:
