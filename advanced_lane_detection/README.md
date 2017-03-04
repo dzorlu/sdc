@@ -1,21 +1,11 @@
-## Advanced Lane Finding
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
 
-In this project, your goal is to write a software pipeline to identify the lane boundaries in a video, but the main output or product we want you to create is a detailed writeup of the project.  Check out the [writeup template](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) for this project and use it as a starting point for creating your own writeup.  
+In this project, I used Kalman filters to track the lane lines after successful detection of lane pixels. Binary masking used to detect lane pixels consist of a main masking filter that is a combination of laplacian, saturation, and gray image masking combined with a secondary fallback filter that utilizes sobel thresholding.
 
-Creating a great writeup:
----
-A great writeup should include the rubric points as well as your description of how you addressed each point.  You should include a detailed description of the code used in each step (with line-number references and code snippets where necessary), and links to other supporting documents or external references.  You should include images in your writeup to demonstrate how your code works with examples.  
+The polynomial curvature and position of the lane lines in turn inform us about the curvature of the road and the distance of the center of the vehicle to the middle of lane line. The project is accompanied with three videos annonated by lane markings, curvature of the road, and the distance of the vehicle to the center of the road.
 
-All that said, please be concise!  We're not looking for you to write a book here, just a brief description of how you passed each rubric point, and references to the relevant code :). 
 
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup.
-
-The Project
----
-
-The goals / steps of this project are the following:
+The steps followed are as follows:
 
 * Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
 * Apply a distortion correction to raw images.
@@ -26,10 +16,49 @@ The goals / steps of this project are the following:
 * Warp the detected lane boundaries back onto the original image.
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
-The images for camera calibration are stored in the folder called `camera_cal`.  The images in `test_images` are for testing your pipeline on single frames.  If you want to extract more test images from the videos, you can simply use an image writing method like `cv2.imwrite()`, i.e., you can read the video in frame by frame as usual, and for frames you want to save for later you can write to an image file.  
 
-To help the reviewer examine your work, please save examples of the output from each stage of your pipeline in the folder called `ouput_images`, and include a description in your writeup for the project of what each image shows.    The video called `project_video.mp4` is the video your pipeline should work well on.  
+## Camera Calibration
+Images captured by a camera are typically distorted by the lense.  Using a distorted image would cause issues if one attempts to calculate statistics based on it. The first step in the lane detection pipeline is to undistort the image by computing the transformation between 3D object points in the world and 2D image points. Samples of chessboard patterns recorded from different angles are used to [calibrate](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L13) the camera in order to [undistort](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L40) the incoming images.  
 
-The `challenge_video.mp4` video is an extra (and optional) challenge for you if you want to test your pipeline under somewhat trickier conditions.  The `harder_challenge.mp4` video is another optional challenge and is brutal!
+## Lane Masking
+As the second step, I tried several binary masking methods to compare the performance. I came back and modified my approach iteratively to create fallback options if primary binary image didn't capture left or right side of the point of view.
 
-If you're feeling ambitious (again, totally optional though), don't stop there!  We encourage you to go out and take video of your own, calibrate your camera and show us how you would implement this project from scratch!
+
+
+[]()
+The steps are are as follows:
+ - primary filter: combination of laplacian, saturation, and gray image masking
+
+  `combined_binary = cv2.bitwise_and(laplacian_binary, cv2.bitwise_or(s_binary, gray_binary))`
+
+ - secondary filter: sobel thresholding
+
+   `x_y_binary = cv2.bitwise_and(x_binary, y_binary)`
+
+
+ - region of interest filters to focus on the lower triangle of the image.
+
+
+## Perspective transform
+Perspective transform requires two points - source and destination - to define the transformation mapping. I used a straight pattern lane to calibrate the perspective matrix. `PerspectiveTransformer`
+
+Finally I applied some extra filtering like histogram filters. I sample from the peak of the horizontal pixel intensity to filter out outliers.
+
+## Finding the curvature
+
+I keep track of the line using Kalman filters and all properties of the line are tracked within an instance of a `Line` class.
+
+Kalman filters. assumes  a constant velocity for the car
+
+The Kalman filter briefly consists of prediction and updates states. in the update state, the weighted average of prediction and measurement is based on variances. The more confidence you have on your priors, it will be more difficult to move the mean. `kalman_gain` x `_residual` gives you the adjustment in pixels.
+
+[]()
+
+`Line` is defined as a class that keeps track of lane elements using 1D Kalman Filters. It computes the radius of the curvature after fitting polynomial lanes and rejects outliers that are way too off from previous baseline pixel.
+
+I first compute the polynomial of points detected in the current image. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value. The prediction for the baseline pixel (the pixel that sits on the horizontal axis) is used to update the state of the Kalman filter. If the point is too far off, the `Line` rejects the proposed image and moves on to the next image. Update Kalman filter state even though there are no detected lines by injecting some noise into the state and incrementing the state noise. This approach enables a quicker adjustment to the next detected lane.
+
+Kalman filter is initialized such that it takes 5 seconds for the filter completely adjust to the signal. The video streams at a 25 pixels per second. That means the state gets updated 25 times and kalman update
+
+
+http://www.intmath.com/applications-differentiation/8-radius-curvature.php
