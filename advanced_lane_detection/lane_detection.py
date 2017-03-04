@@ -10,7 +10,7 @@ from kalman_filters import KalmanFilter1D
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
-def detect_points(masked_image):
+def identify_points(masked_image):
     """Retrieve the index points for left and right lanes"""
     image_shape = masked_image.shape
     mid_point = image_shape[1] // 2
@@ -56,16 +56,12 @@ class Line(KalmanFilter1D):
         self.y = np.linspace(0,720,721)
         #average x values of the fitted line over the last n iterations
         self.wx = None
-        #polynomial coefficients averaged over the last n iterations
-        self.best_fit = None
         #polynomial coefficients for the most recent fit
         self.current_fit = [np.array([False])]
-        #radius of curvature of the line in some units
+        #radius of curvature of the line in pixel units
         self.radius_of_curvature = None
         #the distance of the line to corner of the image
         self.base_position = None
-        #difference in fit coefficients between last and new fits
-        self.diffs = np.array([0,0,0], dtype='float')
         # detected line pixels coordinates
         # this is the raw data
         self.pts = []
@@ -171,13 +167,12 @@ def overlay_detected_lane(img, transformer, warped, left, right, show_weighted =
 
 def process(img, transformer, left, right):
     warped_image = transformer.transform(img)
-    left_points, right_points = detect_points(warped_image)
-    # update.
-    # left and right are global variables
+    # separete points into left and right
+    left_points, right_points = identify_points(warped_image)
+    # update step. process each half seperately.
     left.process_image(left_points)
     right.process_image(right_points)
-    # draw
-    # Recast the x and y points into usable format for cv2.fillPoly()
+    # draw - recast the x and y points into usable format for cv2.fillPoly()
     new_img = overlay_detected_lane(img, transformer, warped_image, left, right)
     return new_img
 
