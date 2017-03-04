@@ -45,7 +45,7 @@ I follows the following steps for image masking:
 
 
 ## Perspective transform
-Next, we transform the perspective from head-one camera view to "bird's eye". The technique requires two points - source and destination - to define the transformation mapping. I used an image where the lane marking was straight and clearly marked to calibrate the perspective matrix with [PerspectiveTransformer](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L244).
+Next, we transform the perspective from head-one camera view to "bird's eye". We do this in order to (i) identity the lane more accurately (ii) compute the curvature of the road. The technique requires two points - source and destination - to define the transformation mapping. I used an image where the lane marking was straight and clearly marked to calibrate the perspective matrix with [PerspectiveTransformer](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L244).
 
 ```
 class PerspectiveTransformer:
@@ -62,7 +62,15 @@ class PerspectiveTransformer:
         return cv2.warpPerspective(img, self.M_inv, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
 ```
 
+Given the masked image, the destination and source points can be seen below, where red and blue dots and source and destination points, respectively. Note that the points overlap on the horizontal axis.
+[Source and Destination](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/perspective_transform.png)
+
+The result of the transformation for the same image
+[transformation](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/perspective_transform2.png)
+
 Finally I applied some extra filtering like [histogram filters](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L168). Histogram filters are another layer to eliminate the outliers in the image by computing the pixel intensity along the horizontal axis and accepting filters that are closer to the peak for right and left lanes.
+
+`TransformationPipeline`["https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L258"] succinctly implements the pipelining discussed so far. 
 
 ## Finding the curvature
 
