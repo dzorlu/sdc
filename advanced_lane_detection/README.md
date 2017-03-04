@@ -127,13 +127,16 @@ def process_image(self, pts):
     self.set_base_position()
 ```
 
-Next, we update the [Kalman filter]()state with `self.update()`. We could be tracking several things including the polynomial coefficients or the points in the image. For this project, I decided to track the points instead of polynomial fit because I find it more intuitive. It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle. Secondly, I assume independence between the points I track. This is a gross simplification because neighboring points of a lane are dependent on each other.  Third, I assume that the points out in the horizon adjust faster. In Kalman filter world, faster adjustment translates into a larger Kalman gain, which i defined as
+Next, we update the [Kalman filter](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filters.py) state with `self.update()`. We could be tracking several things including the polynomial coefficients or the points in the image. For this project, I decided to track the points instead of polynomial fit because I find it more intuitive. It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle. Secondly, I assume independence between the points I track. This is a gross simplification because neighboring points of a lane are dependent on each other.  Third, I assume that the points out in the horizon adjust faster because points further out move at a faster clip and measurement updates should carry more weight. In Kalman filter world, faster adjustment translates into a larger Kalman gain, which i defined as the ratio of state noise to statement noise and measurement noise combined.
 
 `_kalman_gain = self.state_noise / (self.state_noise + self.measurement_noise)`
 
+A lower measurement noise returns a higher kalman gain, which in turn is used to update the state:
 
-
-same measurement noise as the points that are closer to the vehicle. This, again, is not true. Points further out move at a faster clip and measurement updates should carry more weight.
+```
+_residual = update - self.s
+self.s = _kalman_gain * _residual + self.s
+```
 
 Kalman filter is initialized such that it takes 1 second for the filter completely adjust to the measurement difference of 10 pixels. For example, given the previous state of the pixel at x = 200 and constant measurement at x = 220, the lane tracking object will take 2 seconds to shift the state of the pixel point completely.
 
