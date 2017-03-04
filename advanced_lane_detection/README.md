@@ -59,7 +59,7 @@ The result of the transformation for the same image
 
 Finally I applied some extra filtering like [histogram filters](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L168). Histogram filters are another layer to eliminate the outliers in the image by computing the pixel intensity along the horizontal axis and accepting filters that are closer to the peak for right and left lanes.
 
-`TransformationPipeline`[https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L258] succinctly implements the pipelining discussed so far. Input is the incoming video frame and the output is the warped image that is undistorted, masked, warper, and filtered.
+`TransformationPipeline` succinctly implements the pipelining discussed so far. Input is the incoming video frame and the output is the warped image that is undistorted, masked, warped, and filtered.
 
 ```
 class TransformationPipeline():
@@ -101,11 +101,18 @@ class TransformationPipeline():
 
 ## Finding the curvature
 
-I keep track of the line using Kalman filters and all properties of the line are tracked within an instance of a `Line` class.
+I keep track of the fitted polynomial line using Kalman filters. All properties of the line are tracked within an instance of the `Line`(https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L42) class.
 
-Kalman filters. assumes  a constant velocity for the car
+The Kalman filters consist of prediction and updates states. In the update state, we take a measurement, which in this case is the lane pixel points detected in the image. The update state intuitively reduces uncertainty about whereabouts of the object.  But as the time passes, the randomness of the motion of the the object we are tracking introduces uncertainty. I have found that this approach is applicable to the problem because of two reasons:
 
-The Kalman filter briefly consists of prediction and updates states. in the update state, the weighted average of prediction and measurement is based on variances. The more confidence you have on your priors, it will be more difficult to move the mean. `kalman_gain` x `_residual` gives you the adjustment in pixels.
+ - Pixels detected in the current image contain some measurement noise, i.e. we are not certain that the observation identifies the lane lines with full accuracy. We need to quantity how much belief we should have on evidence versus the priors.
+ - There are cases where the `TransformationPipeline` fails to return any lane pixels. In such cases, we need to account for the fact that we are facing an uncertain world and the vehicle might not be where we detected the last time - several frames back. Hence we need to inject some uncertainty into the current state of lane object we are tracking.
+
+ 
+
+
+
+the weighted average of prediction and measurement is based on variances. The more confidence you have on your priors, it will be more difficult to move the mean. `kalman_gain` x `_residual` gives you the adjustment in pixels. assumes  It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle.
 
 []()
 
