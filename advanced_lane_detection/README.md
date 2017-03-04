@@ -138,11 +138,9 @@ _residual = update - self.s
 self.s = _kalman_gain * _residual + self.s
 ```
 
-Kalman filter is initialized such that it takes 1 second for the filter completely adjust to the measurement difference of 10 pixels. For example, given the previous state of the pixel at x = 200 and constant measurement at x = 220, the lane tracking object will take 2 seconds to shift the state of the pixel point completely.
+The video streams at a 25 pixels per second, which translates into 25 update steps to fully adjust. Kalman filter is initialized such that it takes 1 second for the filter completely adjust to the measurement difference of 25 pixels. For example, given the previous state of the pixel at x = 200 and constant measurement at x = 225, the lane tracking object will take 1 second to shift the state of the pixel point completely.
 
-The video streams at a 25 pixels per second, which translates into 25 update steps to fully adjust.
-
-the weighted average of prediction and measurement is based on variances. The more confidence you have on your priors, it will be more difficult to move the mean. `kalman_gain` x `_residual` gives you the adjustment in pixels.   
+Pixels in the horizon adjust twice faster and the adjustment speed increases monotonically from the front of the car out to the horizon. This means that we have lower measurement noise as we go out to horizon. The implementation details of the filter can be found in [kalman_filter.py] 
 
 []()
 

@@ -1,12 +1,13 @@
 import numpy as np
 
 class KalmanFilter1D(object):
-  def __init__(self, initial_state, state_noise, measurement_noise):
-    # Measurement noise does not change.
-    self.measurement_noise = measurement_noise
+  def __init__(self, initial_state, measurement_dimension=720, pixels_second_adjustment=50):
     # These are updates at every prediction and update steps.
-    self.state_noise = state_noise
+    self.state_noise = 1
     self.s = initial_state
+    # Measurement noise is an array decreasing monotonically
+    # Pixels in the horizon adjust twice faster
+    _adj = np.linspace(pixels_second_adjustment , pixels_second_adjustment//2, measurement_dimension)
 
   def update(self,update):
     # noise gets smaller
