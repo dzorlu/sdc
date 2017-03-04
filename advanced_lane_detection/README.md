@@ -11,6 +11,7 @@ The steps followed are as follows:
 * Apply a distortion correction to raw images.
 * Use color transforms, gradients, etc., to create a thresholded binary image.
 * Apply a perspective transform to rectify binary image ("birds-eye view").
+
 * Detect lane pixels and fit to find the lane boundary.
 * Determine the curvature of the lane and vehicle position with respect to center.
 * Warp the detected lane boundaries back onto the original image.
@@ -23,12 +24,12 @@ Images captured by a camera are typically distorted by the lense.  Using a disto
 [Image before and after undistortion](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/undistort.png)
 
 ## Lane Masking
-As the second step, I tried several binary masking methods to compare the performance. I came back and modified my approach iteratively to create fallback options if primary binary image didn't capture left or right side of the point of view. Overall, I attempted 9 binary masking [techniques](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py).
+As the second step, I tried several binary masking methods to compare the performance. I came back and modified my approach iteratively to create fallback options if primary binary image didn't capture left or right side of the point of view. Overall, I attempted 9 binary masking  [techniques](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py) all of which are shown below. My experience led to the belief that laplacian, saturation, and gray channels work the best.
 
 ![Masking Techniques](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/masking.png)
 
-[]()
-The steps are are as follows:
+I follows the following steps for image masking:
+
  - primary filter: combination of laplacian, saturation, and gray image masking
 
   `combined_binary = cv2.bitwise_and(laplacian_binary, cv2.bitwise_or(s_binary, gray_binary))`
@@ -37,12 +38,29 @@ The steps are are as follows:
 
    `x_y_binary = cv2.bitwise_and(x_binary, y_binary)`
 
+ - [region of interest](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L111) filters to ignore regions outside our scope and focus on the lower triangle of the image.
 
- - region of interest filters to focus on the lower triangle of the image.
+ Lane masking process in the pipeline gives me the following result.
+ [](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/masked_image.png)
 
 
 ## Perspective transform
-Perspective transform requires two points - source and destination - to define the transformation mapping. I used a straight pattern lane to calibrate the perspective matrix. `PerspectiveTransformer`
+Next, we transform the perspective from head-one camera view to "bird's eye". The technique requires two points - source and destination - to define the transformation mapping. I used an image where the lane marking was straight and clearly marked to calibrate the perspective matrix with [PerspectiveTransformer](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L244).
+
+```
+class PerspectiveTransformer:
+    def __init__(self, src, dst):
+        self.src = src #both src and dst should be mappings that are representative of a straight lane
+        self.dst = dst
+        self.M = cv2.getPerspectiveTransform(src, dst)
+        self.M_inv = cv2.getPerspectiveTransform(dst, src)
+
+    def transform(self, img):
+        return cv2.warpPerspective(img, self.M, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
+
+    def inverse_transform(self, img):
+        return cv2.warpPerspective(img, self.M_inv, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
+```
 
 Finally I applied some extra filtering like histogram filters. I sample from the peak of the horizontal pixel intensity to filter out outliers.
 
