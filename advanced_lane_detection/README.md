@@ -38,7 +38,7 @@ It follows the following steps for image masking:
 
    `x_y_binary = cv2.bitwise_and(x_binary, y_binary)`
 
- - [region of interest](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L111) filters ignores regions outside our scope and focus on the lower triangle of the image.
+ - [region of interest](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L111) filters ignore regions outside our scope and focus on the lower triangle of the image.
 
  Lane masking process couple with filtering the region of interest produces the following result.
 
@@ -53,11 +53,11 @@ Given the masked image, the destination and source points can be seen below, whe
 
 ![Source and Destination](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/perspective_transform.png)
 
-The result of the transformation for the same image
+The transformation produces a warped image.
 
 ![transformation](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/perspective_transform2.png)
 
-Finally I applied some extra filtering like [histogram filters](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L168). Histogram filters are another layer to eliminate the outliers in the image by computing the pixel intensity along the horizontal axis and accepting filters that are closer to the peak for right and left lanes.
+Finally I applied some extra filtering like [histogram filters](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L168). Histogram filters are another layer to eliminate the outliers in the image by computing the pixel intensity along the horizontal axis and accepting pixels that are in the vicinity of the peak for right and left halves of the image.
 
 `TransformationPipeline` succinctly implements the pipelining discussed so far. Input is the incoming video frame and the output is the warped image that is undistorted, masked, warped, and filtered.
 
@@ -101,14 +101,14 @@ class TransformationPipeline():
 
 ## Finding the curvature
 
-I keep track of the fitted polynomial line using Kalman filters. All properties of the line are tracked within an instance of the `Line`(https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L42) class.
+I keep track of the fitted polynomial line using Kalman filters. All properties of the line are tracked within an instance of the [`Line`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L42) class.
 
 The Kalman filters consist of prediction and updates states. In the update state, we take a measurement, which in this case is the lane pixel points detected in the image. The update state intuitively reduces uncertainty about whereabouts of the object.  But as the time passes, the randomness of the motion of the the object we are tracking introduces uncertainty. I have found that this approach is applicable to the problem because of two reasons:
 
  - Pixels detected in the current image contain some measurement noise, i.e. we are not certain that the observation identifies the lane lines with full accuracy. We need to quantity how much belief we should have on evidence versus the priors.
  - There are cases where the `TransformationPipeline` fails to return any lane pixels. In such cases, we need to account for the fact that we are facing an uncertain world and the vehicle might not be where we detected the last time - several frames back. Hence we need to inject some uncertainty into the current state of lane object we are tracking.
 
- 
+
 
 
 
