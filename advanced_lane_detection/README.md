@@ -28,7 +28,7 @@ As the second step, I tried several binary masking methods to compare the perfor
 
 ![Masking Techniques](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/masking.png)
 
-I follows the following steps for image masking:
+It follows the following steps for image masking:
 
  - primary filter: combination of laplacian, saturation, and gray image masking
 
@@ -40,27 +40,14 @@ I follows the following steps for image masking:
 
  - [region of interest](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L111) filters ignores regions outside our scope and focus on the lower triangle of the image.
 
- Lane masking process in the pipeline gives me the following result.
- [After Lane Masking and Region of Interest Filtering](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/masked_image.png)
+ Lane masking process couple with filtering the region of interest produces the following result.
+
+ ![After Lane Masking and Region of Interest Filtering](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/masked_image.png)
 
 
 ## Perspective transform
 Next, we transform the perspective from head-one camera view to "bird's eye". We do this in order to (i) identity the lane more accurately (ii) compute the curvature of the road. The technique requires two points - source and destination - to define the transformation mapping. I used an image where the lane marking was straight and clearly marked to calibrate the perspective matrix with [PerspectiveTransformer](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L244).
 
-```
-class PerspectiveTransformer:
-    def __init__(self, src, dst):
-        self.src = src #both src and dst should be mappings that are representative of a straight lane
-        self.dst = dst
-        self.M = cv2.getPerspectiveTransform(src, dst)
-        self.M_inv = cv2.getPerspectiveTransform(dst, src)
-
-    def transform(self, img):
-        return cv2.warpPerspective(img, self.M, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
-
-    def inverse_transform(self, img):
-        return cv2.warpPerspective(img, self.M_inv, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
-```
 
 Given the masked image, the destination and source points can be seen below, where red and blue dots and source and destination points, respectively. Note that the points overlap on the horizontal axis.
 [Source and Destination](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/perspective_transform.png)
@@ -70,7 +57,45 @@ The result of the transformation for the same image
 
 Finally I applied some extra filtering like [histogram filters](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L168). Histogram filters are another layer to eliminate the outliers in the image by computing the pixel intensity along the horizontal axis and accepting filters that are closer to the peak for right and left lanes.
 
-`TransformationPipeline`["https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L258"] succinctly implements the pipelining discussed so far. 
+`TransformationPipeline`["https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L258"] succinctly implements the pipelining discussed so far.
+
+```
+class TransformationPipeline():
+    def __init__(self, camera_calibration, src, dst ):
+        self.camera_calibration = camera_calibration
+        self.perspective_transformer = PerspectiveTransformer(src, dst)
+
+    def transform(self, img):
+        _img = self.undistort_image(img)
+        # depending on the avail of filtered_warped_image apply another round of masking
+        binary_img = self.lane_masking(_img)
+        warped_image = self.perspective_transform(binary_img)
+        filtered_warped_image = self.histogram_filter(warped_image)
+
+        return filtered_warped_image
+
+    def undistort_image(self, img):
+        return undistort_image(img, self.camera_calibration)
+
+    def lane_masking(self, img):
+        return lane_masking(img)
+
+    def post_lane_masking(self, img, warped):
+        return post_lane_masking(img, warped)
+
+    def region_of_interest(self, img):
+        # Filters the image for the lower trapezoid
+        return region_of_interest(img)
+
+    def perspective_transform(self, img):
+        return self.perspective_transformer.transform(img)
+
+    def inverse_perspective_transform(self, img):
+        return self.perspective_transformer.inverse_transform(img)
+
+    def histogram_filter(self, img):
+        return histogram_filter(img)
+```
 
 ## Finding the curvature
 
