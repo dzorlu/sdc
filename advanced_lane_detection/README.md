@@ -101,44 +101,40 @@ class TransformationPipeline():
 
 ## Lane Tracking Pipeline
 
-I keep track of the fitted polynomial line using Kalman filters. All properties of the line are tracked within an instance of the [`Line`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L42) class.
+I keep track of the fitted polynomial line using Kalman filters. All properties of the line are tracked within an instance of the [`Line`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L42) class. It should be noted that we keep track of left lane and right lane separately throughout.
 
 The Kalman filters consist of prediction and updates states. In the update state, we take a measurement, which in this case is the lane pixel points detected in the image. Intuitively, the update state reduces uncertainty about whereabouts of the object. But the passage of time and the randomness of the motion of the the object we are tracking introduce uncertainty. I have found that this approach is applicable to the problem because of two reasons:
 
  - Pixels detected in the current image contain some measurement noise, i.e. we are not certain that the observation identifies the lane lines with full accuracy. We need to quantity how much belief we should have on evidence versus the priors.
  - There are cases where the `TransformationPipeline` fails to return any lane pixels. In such cases, we need to account for the fact that we are facing an uncertain world and the vehicle might not be where we detected the last time - several frames back. Hence we need to inject some uncertainty into the current state of lane object we are tracking.
 
-Before I discuss the methodology in more detail, I want to talk about the lane tracking pipeline. Lane tracking update is performed with the `process_image` method outlined below. 
+Before I discuss the methodology in more detail, I want to talk about the lane tracking pipeline. Lane tracking update is performed with the [`process_image`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L128) method shown below.
 
+Processing step takes in pixel points detected in the transformation pipeline and fits a polynomial function with `self.fit_poly_lanes()` to identify the curved line. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value. This means that the `self.set_fitted_x()` method uses static y-axis to predict the x-value for a given lane pixel located in (x,y) coordinate.
 
 ```
 def process_image(self, pts):
-    if len(pts)>0:
-        self.increment_detection_count(True)
-        self.pts = pts
-        self.fit_poly_lanes()
-        """Filter"""
-        """If rejected, do not predict x"""
-        if self.evaluate_base_position():
-            self.set_fitted_x()
-            # kalman update baseline next step
-            self.update()
-            self.set_curve_radius()
-            self.detected = True
-    else:
-        # No points are found in preprocessing. hence skipping
-        self.increment_detection_count(False)
-        self.detected = False
+    self.pts = pts
+    self.increment_detection_count()
+    self.fit_poly_lanes()
+    self.set_fitted_x()
+    # kalman update baseline next step
+    self.update()
+    # Using updated step, calculate the following:
+    # curvature update
+    self.set_curve_radius()
+    # base position update
+    self.set_base_position()
 ```
 
+Next, we update the Kalman filter state. The state
 
 the weighted average of prediction and measurement is based on variances. The more confidence you have on your priors, it will be more difficult to move the mean. `kalman_gain` x `_residual` gives you the adjustment in pixels. assumes  It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle.
 
 []()
 
-`Line` is defined as a class that keeps track of lane elements using 1D Kalman Filters. It computes the radius of the curvature after fitting polynomial lanes and rejects outliers that are way too off from previous baseline pixel.
 
-I first compute the polynomial of points detected in the current image. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value. The prediction for the baseline pixel (the pixel that sits on the horizontal axis) is used to update the state of the Kalman filter. If the point is too far off, the `Line` rejects the proposed image and moves on to the next image. Update Kalman filter state even though there are no detected lines by injecting some noise into the state and incrementing the state noise. This approach enables a quicker adjustment to the next detected lane.
+  If the point is too far off, the `Line` rejects the proposed image and moves on to the next image. Update Kalman filter state even though there are no detected lines by injecting some noise into the state and incrementing the state noise. This approach enables a quicker adjustment to the next detected lane.
 
 Kalman filter is initialized such that it takes 5 seconds for the filter completely adjust to the signal. The video streams at a 25 pixels per second. That means the state gets updated 25 times and kalman update
 
