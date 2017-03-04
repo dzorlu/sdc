@@ -99,17 +99,37 @@ class TransformationPipeline():
         return histogram_filter(img)
 ```
 
-## Finding the curvature
+## Lane Tracking Pipeline
 
 I keep track of the fitted polynomial line using Kalman filters. All properties of the line are tracked within an instance of the [`Line`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L42) class.
 
-The Kalman filters consist of prediction and updates states. In the update state, we take a measurement, which in this case is the lane pixel points detected in the image. The update state intuitively reduces uncertainty about whereabouts of the object.  But as the time passes, the randomness of the motion of the the object we are tracking introduces uncertainty. I have found that this approach is applicable to the problem because of two reasons:
+The Kalman filters consist of prediction and updates states. In the update state, we take a measurement, which in this case is the lane pixel points detected in the image. Intuitively, the update state reduces uncertainty about whereabouts of the object. But the passage of time and the randomness of the motion of the the object we are tracking introduce uncertainty. I have found that this approach is applicable to the problem because of two reasons:
 
  - Pixels detected in the current image contain some measurement noise, i.e. we are not certain that the observation identifies the lane lines with full accuracy. We need to quantity how much belief we should have on evidence versus the priors.
  - There are cases where the `TransformationPipeline` fails to return any lane pixels. In such cases, we need to account for the fact that we are facing an uncertain world and the vehicle might not be where we detected the last time - several frames back. Hence we need to inject some uncertainty into the current state of lane object we are tracking.
 
+Before I discuss the methodology in more detail, I want to talk about the lane tracking pipeline. Lane tracking update is performed with the `process_image` method outlined below. 
 
 
+```
+def process_image(self, pts):
+    if len(pts)>0:
+        self.increment_detection_count(True)
+        self.pts = pts
+        self.fit_poly_lanes()
+        """Filter"""
+        """If rejected, do not predict x"""
+        if self.evaluate_base_position():
+            self.set_fitted_x()
+            # kalman update baseline next step
+            self.update()
+            self.set_curve_radius()
+            self.detected = True
+    else:
+        # No points are found in preprocessing. hence skipping
+        self.increment_detection_count(False)
+        self.detected = False
+```
 
 
 the weighted average of prediction and measurement is based on variances. The more confidence you have on your priors, it will be more difficult to move the mean. `kalman_gain` x `_residual` gives you the adjustment in pixels. assumes  It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle.

@@ -68,7 +68,7 @@ class Line(KalmanFilter1D):
         self.diffs = np.array([0,0,0], dtype='float')
         # detected line pixels coordinates
         # this is the raw data
-        self.pts = None
+        self.pts = []
         # For real world transformation
         # meters per pixel in y dimension
         self.ym_per_pix = 30/720
@@ -90,6 +90,7 @@ class Line(KalmanFilter1D):
         self.radius_of_curvature = curverad
 
     def fit_poly_lanes(self, order = 2, pixel_curvature = True):
+        """Fit a polynomial based on current points"""
         # poly fit fit(y,x) - reversed for this particular problem
         _fit = np.polyfit(self.pts[:,1], self.pts[:,0],order)
         self.current_fit = _fit
@@ -106,56 +107,37 @@ class Line(KalmanFilter1D):
         # else:
         #     self.wx = w * self.wx + (1-w) * self.x
 
-
-    def get_base_position(self):
+    def set_base_position(self):
         """ Base position with respect to zero value on x-axis"""
         y_max = np.max(self.y)
         a,b,c = self.current_fit
-        return a * y_max**2 + b * y_max + c
+        self.base_position = a * y_max**2 + b * y_max + c
 
-    def set_base_position(self, base_position):
-        """ Base position with respect to zero value on x-axis"""
-        self.base_position = base_position
-
-    def increment_detection_count(self, success=True):
+    def increment_detection_count(self):
         """Increment the detection count - times input was available"""
         _cnt = self.detection_count
-        if success:
+        if len(self.pts) >0:
+            # Success
             self.detection_count = (_cnt[0]+1, _cnt[1])
+            self.detected = True
         else:
+            # Failure
             self.detection_count = (_cnt[0], _cnt[1]+1)
-
-    def evaluate_base_position(self, pixel_difference = 25):
-        """Reject Base 25 pxls apart from last detection"""
-        proposed_base = self.get_base_position()
-        if not self.base_position:
-            # for initilization
-            self.base_position = proposed_base
-            return True
-        if abs(proposed_base - self.base_position) < pixel_difference:
-            self.base_position = proposed_base
-            return True
-        else:
-            self.rejected_images += 1
-            return False
+            self.detected = False
 
     def process_image(self, pts):
-        if len(pts)>0:
-            self.increment_detection_count(True)
-            self.pts = pts
-            self.fit_poly_lanes()
-            """Filter"""
-            """If rejected, do not predict x"""
-            if self.evaluate_base_position():
-                self.set_fitted_x()
-                # kalman update baseline next step
-                self.update()
-                self.set_curve_radius()
-                self.detected = True
-        else:
-            # No points are found in preprocessing. hence skipping
-            self.increment_detection_count(False)
-            self.detected = False
+        self.pts = pts
+        self.increment_detection_count()
+        self.fit_poly_lanes()
+        self.set_fitted_x()
+        # kalman update baseline next step
+        self.update()
+        # Using updated step, calculate the following:
+        # curvature update
+        self.set_curve_radius()
+        # base position update
+        self.set_base_position()
+
 
 def overlay_detected_lane(img, transformer, warped, left, right, show_weighted = True):
     # TODO: Apply it on undiscorted image
