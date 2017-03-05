@@ -6,7 +6,7 @@ from sklearn.linear_model import LinearRegression
 from functools import partial
 
 from image_transformation import *
-from kalman_filters import KalmanFilter1D
+from kalman_filter import KalmanFilter1D
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -43,11 +43,8 @@ class Line(KalmanFilter1D):
     """
     Line is a state that keeps track of lane elements using 1D Kalman Filters
     Computes the radius of the curvature after fitting polynomial lanes.
-
-    Reject outliers.
-
     """
-    def __init__(self, initial_state = 1280 // 4, process_noise = 1, measurement_noise = 10):
+    def __init__(self, *args, **kwargs):
         # was the line detected in the last iteration?
         self.detected = False
         # fitted x values of the last n fits of the line
@@ -74,13 +71,12 @@ class Line(KalmanFilter1D):
         self.detection_count = (0,0) # True, False
         self.rejected_images = 0
         ##Kalman Filter
-        self.kalman_state = KalmanFilter1D(initial_state, linear_state, process_noise)
-        super(Line, self).__init__(**kwargs)
+        super(Line, self).__init__(*args, **kwargs)
 
 
     def set_curve_radius(self, order=2):
         """Curve Radius Based on Smoothed Lane Lines"""
-        fit_cr = np.polyfit(self.y * self.ym_per_pix, self.wx * self.xm_per_pix, order)
+        fit_cr = np.polyfit(self.y * self.ym_per_pix, self.state * self.xm_per_pix, order)
         y_max = np.max(self.y)
         curverad = ((1 + (2*fit_cr[0]*y_max + fit_cr[1])**2)**1.5) / abs(2*fit_cr[0])
         self.radius_of_curvature = curverad
@@ -95,19 +91,10 @@ class Line(KalmanFilter1D):
         a,b,c = self.current_fit
         self.x = a * self.y**2 + b * self.y+ c
 
-    def update(self):
-        self.x
-        # Initial state
-        # if self.detection_count[0]<=1:
-        #     self.wx = self.x
-        # else:
-        #     self.wx = w * self.wx + (1-w) * self.x
-
     def set_base_position(self):
         """ Base position with respect to zero value on x-axis"""
-        y_max = np.max(self.y)
-        a,b,c = self.current_fit
-        self.base_position = a * y_max**2 + b * y_max + c
+        # Last state x corresponds to a y-value at max.
+        self.base_position = self.state[-1]
 
     def increment_detection_count(self):
         """Increment the detection count - times input was available"""
@@ -127,7 +114,7 @@ class Line(KalmanFilter1D):
         self.fit_poly_lanes()
         self.set_fitted_x()
         # kalman update baseline next step
-        self.update()
+        self.update(self.x)
         # Using updated step, calculate the following:
         # curvature update
         self.set_curve_radius()
@@ -139,12 +126,10 @@ def overlay_detected_lane(img, transformer, warped, left, right, show_weighted =
     # TODO: Apply it on undiscorted image
     warp_zero = np.zeros_like(warped).astype(np.uint8)
     color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    if show_weighted:
-        pts_left = np.array([np.transpose(np.vstack([left.wx, left.y]))])
-        pts_right = np.array([np.flipud(np.transpose(np.vstack([right.wx, right.y])))])
-    else:
-        pts_left = np.array([np.transpose(np.vstack([left.x, left.y]))])
-        pts_right = np.array([np.flipud(np.transpose(np.vstack([right.x, right.y])))])
+
+    pts_left = np.array([np.transpose(np.vstack([left.state, left.y]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right.state, right.y])))])
+
     pts = np.hstack((pts_left, pts_right))
     cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
     # Inverse Transformation

@@ -11,7 +11,6 @@ The steps followed are as follows:
 * Apply a distortion correction to raw images.
 * Use color transforms, gradients, etc., to create a thresholded binary image.
 * Apply a perspective transform to rectify binary image ("birds-eye view").
-
 * Detect lane pixels and fit to find the lane boundary.
 * Determine the curvature of the lane and vehicle position with respect to center.
 * Warp the detected lane boundaries back onto the original image.
@@ -127,7 +126,7 @@ def process_image(self, pts):
     self.set_base_position()
 ```
 
-Next, we update the [Kalman filter](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filters.py) state with `self.update()`. We could be tracking several things including the polynomial coefficients or the points in the image. For this project, I decided to track the points instead of polynomial fit because I find it more intuitive. It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle. Secondly, I assume independence between the points I track. This is a gross simplification because neighboring points of a lane are dependent on each other.  Third, I assume that the points out in the horizon adjust faster because points further out move at a faster clip and measurement updates should carry more weight. In Kalman filter world, faster adjustment translates into a larger Kalman gain, which i defined as the ratio of state noise to statement noise and measurement noise combined.
+Next, we update the filter state with `self.update()`. We could be tracking several things including the polynomial coefficients or the points in the image. For this project, I decided to track the points instead of polynomial fit because I find it more intuitive. It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle. Secondly, I assume independence between the points I track. This is a gross simplification because neighboring points of a lane are dependent on each other.  Third, I assume that the points out in the horizon adjust faster because points further out move at a faster clip and measurement updates should carry more weight. In Kalman filter world, faster adjustment translates into a larger Kalman gain, which i defined as the ratio of state noise to statement noise and measurement noise combined.
 
 `_kalman_gain = self.state_noise / (self.state_noise + self.measurement_noise)`
 
@@ -138,15 +137,23 @@ _residual = update - self.s
 self.s = _kalman_gain * _residual + self.s
 ```
 
-The video streams at a 25 pixels per second, which translates into 25 update steps to fully adjust. Kalman filter is initialized such that it takes 1 second for the filter completely adjust to the measurement difference of 25 pixels. For example, given the previous state of the pixel at x = 200 and constant measurement at x = 225, the lane tracking object will take 1 second to shift the state of the pixel point completely.
+The video streams at a 25 pixels per second, which translates into 25 update steps to fully adjust. Kalman filter is initialized such that it takes 1 second for the filter completely adjust to the measurement difference of 25 pixels. For example, given the previous state of the pixel at x = 200 and constant measurement at x = 225, the lane tracking object will take 1 second to shift the state of the pixel point completely.Pixels in the horizon adjust twice faster and the adjustment speed increases monotonically from the front of the car out to the horizon. This means that we have lower measurement noise as we go out to horizon. The implementation details of the filter can be found in [kalman_filter.py](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filter.py)
 
-Pixels in the horizon adjust twice faster and the adjustment speed increases monotonically from the front of the car out to the horizon. This means that we have lower measurement noise as we go out to horizon. The implementation details of the filter can be found in [kalman_filter.py] 
+In the update step, we inject some uncertainty into the state information and increment the noise of the process. In all, after many prediction and update steps, the state variance should converge to a number that is satisfactory for our purposes.
 
-[]()
+Kalman filters ensure smooth averaging over many pixel instances.
 
+![]()
 
+## Determining curvature and vehicle position with respect to center
 
+The radius and curvature is computed in `set_curve_radius`
 
-
-
-http://www.intmath.com/applications-differentiation/8-radius-curvature.php
+```
+def set_curve_radius(self, order=2):
+    """Curve Radius Based on Smoothed Lane Lines"""
+    fit_cr = np.polyfit(self.y * self.ym_per_pix, self.state * self.xm_per_pix, order)
+    y_max = np.max(self.y)
+    curverad = ((1 + (2*fit_cr[0]*y_max + fit_cr[1])**2)**1.5) / abs(2*fit_cr[0])
+    self.radius_of_curvature = curverad
+```

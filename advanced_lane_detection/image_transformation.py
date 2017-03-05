@@ -156,7 +156,6 @@ def lane_masking(img, threshold = 25):
         _second_pass_binary = post_lane_masking(img)
         filtered_second_pass = region_of_interest(_second_pass_binary)
         filtered_binary = cv2.bitwise_or(filtered_binary, filtered_second_pass)
-    plt.imshow(filtered_binary)
     return filtered_binary
 
 def post_lane_masking(img):
