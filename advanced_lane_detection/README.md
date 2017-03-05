@@ -178,6 +178,7 @@ xm_per_pix = 3.7/700 # meters per pixel in x dimension
 ## Warping the detected lanes back to original image
 Finally, we warp back the image back to the its original viewpoint. [`overlay_detected_lane`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L125) method does the transformation, finalizes the radius and distance calculations and annotates the output image along with the lane boundaries.
 
+The steps described above produces the final output for a given image.
 ![Image](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/output.png)
 
 # Summary and Results
@@ -194,9 +195,11 @@ right.process_image(right_points)
 # annotate the image with metadata
 new_img = overlay_detected_lane(img, transformer, warped_image, left, right)
 ```
-__Project Video__
-![Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_project_video.mp4)
-__Challenge Video__
-![Challenge Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_challange_video.mp4)
-__Harder Challenge Video__
-![Very Challenging Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_harder_challange_video.mp4)
+
+[Project Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_project_video.mp4)
+
+[Challenge Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_challange_video.mp4)
+
+[Harder Challenge Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_harder_challange_video.mp4)
+
+This is an initial version of advanced computer-vision-based lane finding. The lane finder still has hard time with the challenge videos, where lighting angles or the presence of the cars can easily trick the system. In situations where the road curves aggressively also turns out to be problematic for the lane finder. More work needs to be done to both improve the lane detection and calibration of the filter to obtain more robust results.
