@@ -152,9 +152,7 @@ We have to decide on the parameters for the filter. The video streams at a 25 pi
 
 In the update step, we inject some uncertainty into the state information and increment the noise of the process. In all, after many prediction and update steps, the state variance should converge to a number that is satisfactory for our purposes.
 
-Kalman filters ensure smooth averaging over many pixel instances through a Bayesian update mechanism. In addition, the filters allow us to factor in more uncertainty over our beliefs if we fail to detect the lane lines over multiple instances.  
-
-![]()
+Kalman filters ensure smooth averaging over many pixel instances through a Bayesian update mechanism. In addition, the filters allow us to factor in more uncertainty over our beliefs if we fail to detect the lane lines over multiple instances.
 
 ## Determining curvature and vehicle position with respect to center
 
@@ -195,8 +193,8 @@ right.process_image(right_points)
 new_img = overlay_detected_lane(img, transformer, warped_image, left, right)
 ```
 __Project Video__
-![Video]()
+![Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_project_video.mp4)
 __Challenge Video__
-![Challenge Video]()
+![Challenge Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_challange_video.mp4)
 __Harder Challenge Video__
-![Very Challenging Video]()
+![Very Challenging Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_harder_challange_video.mp4)
