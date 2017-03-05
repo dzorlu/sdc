@@ -1,8 +1,8 @@
+# Detecting Lane Lines
 
+In this project, I used Kalman filters to track the lane lines after successful detection of lane pixels. Binary masking used to detect lane pixels consists of a main masking filter combined with a secondary fallback filter. Kalman filters keep track of fitted lane points on both sides of the car.
 
-In this project, I used Kalman filters to track the lane lines after successful detection of lane pixels. Binary masking used to detect lane pixels consist of a main masking filter that is a combination of laplacian, saturation, and gray image masking combined with a secondary fallback filter that utilizes sobel thresholding.
-
-The polynomial curvature and position of the lane lines in turn inform us about the curvature of the road and the distance of the center of the vehicle to the middle of lane line. The project is accompanied with three videos annonated by lane markings, curvature of the road, and the distance of the vehicle to the center of the road.
+The output metadata - the polynomial curvature and position of the lane lines- in turn informs us about the curvature of the road and the distance of the center of the vehicle to the middle of lane line. The project is accompanied with three videos annonated by lane markings, curvature of the road, and the distance of the vehicle to the center of the road.
 
 
 The steps followed are as follows:
@@ -23,11 +23,13 @@ Images captured by a camera are typically distorted by the lense.  Using a disto
 ![Image before and after undistortion](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/undistort.png)
 
 ## Lane Masking
-As the second step, I tried several binary masking methods to compare the performance. I came back and modified my approach iteratively to create fallback options if primary binary image didn't capture left or right side of the point of view. Overall, I attempted 9 binary masking  [techniques](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py) all of which are shown below. My experience led to the belief that laplacian, saturation, and gray channels work the best.
+As the second step, I tried several binary masking methods. Lane masking is required to detect the location of the lane lines. I came back and modified my approach iteratively by creating a fallback option. If primary binary image failed to capture the left or right side of the point of view, secondary filter is applied to the image. Additionally, the lane masking method only accepts pixels that are within the region of interest.
+
+Overall, I attempted 9 binary masking  [techniques](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py) all of which are shown below. After inspection on multiple images, I concluded that the laplacian, saturation, and gray channels work the best.
 
 ![Masking Techniques](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/masking.png)
 
-It follows the following steps for image masking:
+The module consists of following steps:
 
  - primary filter: combination of laplacian, saturation, and gray image masking
 
@@ -39,16 +41,17 @@ It follows the following steps for image masking:
 
  - [region of interest](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L111) filters ignore regions outside our scope and focus on the lower triangle of the image.
 
- Lane masking process couple with filtering the region of interest produces the following result.
+
+Lane masking process couple with filtering the region of interest produces the following result.
 
  ![After Lane Masking and Region of Interest Filtering](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/masked_image.png)
 
 
 ## Perspective transform
-Next, we transform the perspective from head-one camera view to "bird's eye". We do this in order to (i) identity the lane more accurately (ii) compute the curvature of the road. The technique requires two points - source and destination - to define the transformation mapping. I used an image where the lane marking was straight and clearly marked to calibrate the perspective matrix with [PerspectiveTransformer](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L244).
+Next, we transform the perspective from head-one camera view to "bird's eye". We do this in order to (i) identity the lane more accurately (ii) compute the curvature of the road. The technique requires two points - source and destination - to define the transformation mapping. In order to calibrate the perspective matrix, I used an image where the lane marking was straight and clearly marked.  [PerspectiveTransformer](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L244) is the class that implements the logic.
 
 
-Given the masked image, the destination and source points can be seen below, where red and blue dots and source and destination points, respectively. Note that the points overlap on the horizontal axis.
+Given the masked image, the destination and source points can be seen below, where red and blue dots are source abd destination points, respectively. Note that the points overlap on the horizontal axis.
 
 ![Source and Destination](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/perspective_transform.png)
 
@@ -56,9 +59,9 @@ The transformation produces a warped image.
 
 ![transformation](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/perspective_transform2.png)
 
-Finally I applied some extra filtering like [histogram filters](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L168). Histogram filters are another layer to eliminate the outliers in the image by computing the pixel intensity along the horizontal axis and accepting pixels that are in the vicinity of the peak for right and left halves of the image.
+Finally I applied some extra [filtering](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/image_transformation.py#L168). Histogram filter computes the pixel intensity along the horizontal axis and accepts pixels that are in the vicinity of the peak for right and left halves of the image.
 
-`TransformationPipeline` succinctly implements the pipelining discussed so far. Input is the incoming video frame and the output is the warped image that is undistorted, masked, warped, and filtered.
+`TransformationPipeline` succinctly implements the pipeline discussed so far with its method `transform`. Input is the incoming video frame and the output is the warped image that is undistorted, masked, warped, and filtered.
 
 ```
 class TransformationPipeline():
@@ -100,16 +103,16 @@ class TransformationPipeline():
 
 ## Lane Tracking Pipeline
 
-I keep track of the fitted polynomial line using Kalman filters. All properties of the line are tracked within an instance of the [`Line`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L42) class. It should be noted that we keep track of left lane and right lane separately throughout.
+I keep track of the points on the fitted polynomial lines using Kalman filters. All properties of the lines are tracked within an instance of the [`Line`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L42) class, which is a child a [Kalman filter class](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filter.py). It should be noted that we keep track of left lane and right lane separately throughout.
 
-The Kalman filters consist of prediction and updates states. In the update state, we take a measurement, which in this case is the lane pixel points detected in the image. Intuitively, the update state reduces uncertainty about whereabouts of the object. But the passage of time and the randomness of the motion of the the object we are tracking introduce uncertainty. I have found that this approach is applicable to the problem because of two reasons:
+The Kalman filters consist of prediction and updates states. In the update state, we take a measurement, which in this case is the new lane pixel points detected in the image. Intuitively, the update state reduces uncertainty about whereabouts of the object. But the passage of time and the randomness of the motion of the the tracked objects introduce uncertainty. I have found that this approach is applicable to the problem because of two reasons:
 
  - Pixels detected in the current image contain some measurement noise, i.e. we are not certain that the observation identifies the lane lines with full accuracy. We need to quantity how much belief we should have on evidence versus the priors.
  - There are cases where the `TransformationPipeline` fails to return any lane pixels. In such cases, we need to account for the fact that we are facing an uncertain world and the vehicle might not be where we detected the last time - several frames back. Hence we need to inject some uncertainty into the current state of lane object we are tracking.
 
 Before I discuss the methodology in more detail, I want to talk about the lane tracking pipeline. Lane tracking update is performed with the [`process_image`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L128) method shown below.
 
-Processing step takes in pixel points detected in the transformation pipeline and fits a polynomial function with `self.fit_poly_lanes()` to identify the curved line. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value. This means that the `self.set_fitted_x()` method uses static y-axis to predict the x-value for a given lane pixel located in (x,y) coordinate.
+Processing step takes in pixel points detected in the transformation pipeline and fits a polynomial function with `self.fit_poly_lanes()` to identify the curved line. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value, the `self.set_fitted_x()` method uses static y-axis to predict the x-values for a given lane pixel located in (x,y) coordinate.
 
 ```
 def process_image(self, pts):
@@ -126,18 +129,18 @@ def process_image(self, pts):
     self.set_base_position()
 ```
 
-Next, we update the filter state with `self.update()`. We could be tracking several things including the polynomial coefficients or the points in the image. For this project, I decided to track the points instead of polynomial fit because I find it more intuitive. It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle. Secondly, I assume independence between the points I track. This is a gross simplification because neighboring points of a lane are dependent on each other.  Third, I assume that the points out in the horizon adjust faster because points further out move at a faster clip and measurement updates should carry more weight. In Kalman filter world, faster adjustment translates into a larger Kalman gain, which i defined as the ratio of state noise to statement noise and measurement noise combined.
+Next, we update the filter state with `self.update()`. We could be tracking several things including the polynomial coefficients or the points in the image. For this project, I decided to track the points instead of the polynomial fit because I find it more intuitive. It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle. Secondly, I assume independence between the points I track. This is a gross simplification because the neighboring points in a lane are dependent on each other.  Third, because the points in the horizon should move faster, the measurement updates in the filter carry more weight. In Kalman filter world, faster adjustment translates into a larger Kalman gain, which is defined as the ratio of state noise to statement noise and measurement noise combined.
 
 `_kalman_gain = self.state_noise / (self.state_noise + self.measurement_noise)`
 
-A lower measurement noise returns a higher kalman gain, which in turn is used to update the state:
+A lower measurement noise returns a higher kalman gain, which pulls the current state more towards its direction. The procedure is as follows:
 
 ```
 _residual = update - self.s
 self.s = _kalman_gain * _residual + self.s
 ```
 
-The video streams at a 25 pixels per second, which translates into 25 update steps to fully adjust. Kalman filter is initialized such that it takes 1 second for the filter completely adjust to the measurement difference of 25 pixels. For example, given the previous state of the pixel at x = 200 and constant measurement at x = 225, the lane tracking object will take 1 second to shift the state of the pixel point completely.Pixels in the horizon adjust twice faster and the adjustment speed increases monotonically from the front of the car out to the horizon. This means that we have lower measurement noise as we go out to horizon. The implementation details of the filter can be found in [kalman_filter.py](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filter.py)
+We have to decide on the parameters for the filter. The video streams at a 25 pixels per second. Kalman filter is initialized such that it takes 1 second for the filter completely adjust to the measurement difference of 25 pixels. For example, given the previous state of the pixel at x = 200 and the constant measurement at x = 225, the lane tracking object will take 1 second to shift the state of the pixel point completely. Pixels in the horizon adjust twice faster and the adjustment speed increases monotonically from the front of the car out to the horizon. This means that we have lower measurement noise as we go out to horizon. The implementation details of the filter can be found in [kalman_filter.py](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filter.py)
 
 In the update step, we inject some uncertainty into the state information and increment the noise of the process. In all, after many prediction and update steps, the state variance should converge to a number that is satisfactory for our purposes.
 
