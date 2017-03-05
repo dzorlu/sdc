@@ -7,8 +7,8 @@ class KalmanFilter1D(object):
     self._state = initial_state
     self._noise = 1
     # Measurement noise is an array decreasing monotonically
-    # Pixels in the horizon adjust twice faster
-    self.measurement_noise = self.noise * np.linspace(25, 25, 721)
+    # Pixels in the horizon adjust faster
+    self.measurement_noise = self.noise * np.linspace(10, 25, 721)
 
   def update(self,update):
     # noise gets smaller
@@ -45,12 +45,12 @@ class KalmanFilter1D(object):
   def noise(self, value):
     self._noise = value
 
-
-m, s = 25,1
-i = 0
-_s = []
-while i < 100:
-    s = (m * s) / (m + s)
-    s +=  m
-    _s.append(s)
-    i += 1
+#
+# m, s = 25,1
+# i = 0
+# _s = []
+# while i < 100:
+#     s = (m * s) / (m + s)
+#     s +=  m
+#     _s.append(s)
+#     i += 1

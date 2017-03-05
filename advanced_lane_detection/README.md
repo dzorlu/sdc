@@ -114,7 +114,7 @@ If the image did not produce any pixels to work on, the `process_image` method p
 
 Before I discuss the methodology in more detail, I want to talk about the lane tracking pipeline. Lane tracking update is performed with the [`process_image`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L128) method shown below.
 
-Processing step takes in pixel points detected in the transformation pipeline and fits a polynomial function with `self.fit_poly_lanes()` to identify the curved line. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value, the `self.set_fitted_x()` method uses static y-axis to predict the x-values for a given lane pixel located in (x,y) coordinate.
+Processing step takes in pixel points detected in the transformation pipeline and fits a polynomial function with `self.fit_poly_lanes()` to identify the curved line. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value, the `self.set_fitted_x()` method uses static y-axis to predict the x-values for a given lane pixel located in (x,y) coordinate. `self.evaluate()` is another filter that rejects polynomial fits that are too far away from the state of the Kalman filter.
 
 ```
 def process_image(self, pts):
@@ -123,13 +123,15 @@ def process_image(self, pts):
     if len(self.pts) > 0:
         self.fit_poly_lanes()
         self.set_fitted_x()
-        # kalman update baseline next step
-        self.update(self.x)
-        # Using updated step, calculate the following:
-        # curvature update
-        self.set_curve_radius()
-        # base position update
-        self.set_base_position()
+        # Reject if incoming polynomial fit is too far away
+        if self.evaluate():
+            # kalman update baseline next step
+            self.update(self.x)
+            # Using updated step, calculate the following:
+            # curvature update
+            self.set_curve_radius()
+            # base position update
+            self.set_base_position()
     else:
         # If no points found, predict the next step
         self.predict()

@@ -108,19 +108,32 @@ class Line(KalmanFilter1D):
             self.detection_count = (_cnt[0], _cnt[1]+1)
             self.detected = False
 
+    def evaluate(self,threshold = 25):
+        valid = True
+        # Account for initial pixels
+        if self.detection_count[0] <= 10:
+            return valid
+        # Reject is baseline is pixels away
+        if abs(self.x[-1] > self.state[-1]) > threshold:
+            self.rejected_images += 1
+            valid = False
+        return valid
+
     def process_image(self, pts):
         self.pts = pts
         self.increment_detection_count()
         if len(self.pts) > 0:
             self.fit_poly_lanes()
             self.set_fitted_x()
-            # kalman update baseline next step
-            self.update(self.x)
-            # Using updated step, calculate the following:
-            # curvature update
-            self.set_curve_radius()
-            # base position update
-            self.set_base_position()
+            # Reject if incoming polynomial fit is too far away
+            if self.evaluate():
+                # kalman update baseline next step
+                self.update(self.x)
+                # Using updated step, calculate the following:
+                # curvature update
+                self.set_curve_radius()
+                # base position update
+                self.set_base_position()
         else:
             # If no points found, predict the next step
             self.predict()
