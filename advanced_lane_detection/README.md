@@ -147,7 +147,7 @@ Kalman filters ensure smooth averaging over many pixel instances.
 
 ## Determining curvature and vehicle position with respect to center
 
-The radius and curvature is computed in `set_curve_radius`
+The radius and curvature is computed in `set_curve_radius`(https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L77).
 
 ```
 def set_curve_radius(self, order=2):
@@ -156,4 +156,30 @@ def set_curve_radius(self, order=2):
     y_max = np.max(self.y)
     curverad = ((1 + (2*fit_cr[0]*y_max + fit_cr[1])**2)**1.5) / abs(2*fit_cr[0])
     self.radius_of_curvature = curverad
+```
+
+The [vehicle position](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L145) with respect to center is computed as the distance of mean of both left and right base points to the center of the image, which in our case is assumed to be the center of the vehicle.
+
+In both cases, we make sure that distances in terms of pixels are translated into real world distances.
+```
+ym_per_pix = 30/720 # meters per pixel in y dimension
+xm_per_pix = 3.7/700 # meters per pixel in x dimension
+```
+## Warping the detected lanes back to original image
+Finally, we warp back the image back to the its original viewpoint. [`overlay_detected_lane`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L125) method does the transformation, finalizes the radius and distance calculations and annotates the output image along with the lane boundaries.
+
+
+# Summary and Results
+The complete transformation pipeline is run via [`process`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L153) helper method.
+
+```
+warped_image = transformer.transform(img)
+# separete points into left and right
+left_points, right_points = identify_points(warped_image)
+# update step. process each half separately.
+left.process_image(left_points)
+right.process_image(right_points)
+# draw - recast the x and y points into usable format for cv2.fillPoly()
+# annotate the image with metadata
+new_img = overlay_detected_lane(img, transformer, warped_image, left, right)
 ```

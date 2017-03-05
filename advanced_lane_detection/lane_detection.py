@@ -154,7 +154,7 @@ def process(img, transformer, left, right):
     warped_image = transformer.transform(img)
     # separete points into left and right
     left_points, right_points = identify_points(warped_image)
-    # update step. process each half seperately.
+    # update step. process each half separately.
     left.process_image(left_points)
     right.process_image(right_points)
     # draw - recast the x and y points into usable format for cv2.fillPoly()
