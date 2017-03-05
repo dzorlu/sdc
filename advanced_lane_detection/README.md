@@ -154,6 +154,7 @@ In the update step, we inject some uncertainty into the state information and in
 
 Kalman filters ensure smooth averaging over many pixel instances through a Bayesian update mechanism. In addition, the filters allow us to factor in more uncertainty over our beliefs if we fail to detect the lane lines over multiple instances.
 
+
 ## Determining curvature and vehicle position with respect to center
 
 The radius and curvature is computed in [`set_curve_radius`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L77).
@@ -177,6 +178,7 @@ xm_per_pix = 3.7/700 # meters per pixel in x dimension
 ## Warping the detected lanes back to original image
 Finally, we warp back the image back to the its original viewpoint. [`overlay_detected_lane`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L125) method does the transformation, finalizes the radius and distance calculations and annotates the output image along with the lane boundaries.
 
+![Image](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/output.png)
 
 # Summary and Results
 The complete transformation pipeline is run via [`process`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L153) helper method.
