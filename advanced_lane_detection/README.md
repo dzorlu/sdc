@@ -110,6 +110,8 @@ The Kalman filters consist of prediction and updates states. In the update state
  - Pixels detected in the current image contain some measurement noise, i.e. we are not certain that the observation identifies the lane lines with full accuracy. We need to quantity how much belief we should have on evidence versus the priors.
  - There are cases where the `TransformationPipeline` fails to return any lane pixels. In such cases, we need to account for the fact that we are facing an uncertain world and the vehicle might not be where we detected the last time - several frames back. Hence we need to inject some uncertainty into the current state of lane object we are tracking.
 
+If the image did not produce any pixels to work on, the `process_image` method proceeds with the predict step.
+
 Before I discuss the methodology in more detail, I want to talk about the lane tracking pipeline. Lane tracking update is performed with the [`process_image`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L128) method shown below.
 
 Processing step takes in pixel points detected in the transformation pipeline and fits a polynomial function with `self.fit_poly_lanes()` to identify the curved line. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value, the `self.set_fitted_x()` method uses static y-axis to predict the x-values for a given lane pixel located in (x,y) coordinate.
@@ -118,15 +120,19 @@ Processing step takes in pixel points detected in the transformation pipeline an
 def process_image(self, pts):
     self.pts = pts
     self.increment_detection_count()
-    self.fit_poly_lanes()
-    self.set_fitted_x()
-    # kalman update baseline next step
-    self.update()
-    # Using updated step, calculate the following:
-    # curvature update
-    self.set_curve_radius()
-    # base position update
-    self.set_base_position()
+    if len(self.pts) > 0:
+        self.fit_poly_lanes()
+        self.set_fitted_x()
+        # kalman update baseline next step
+        self.update(self.x)
+        # Using updated step, calculate the following:
+        # curvature update
+        self.set_curve_radius()
+        # base position update
+        self.set_base_position()
+    else:
+        # If no points found, predict the next step
+        self.predict()
 ```
 
 Next, we update the filter state with `self.update()`. We could be tracking several things including the polynomial coefficients or the points in the image. For this project, I decided to track the points instead of the polynomial fit because I find it more intuitive. It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle. Secondly, I assume independence between the points I track. This is a gross simplification because the neighboring points in a lane are dependent on each other.  Third, because the points in the horizon should move faster, the measurement updates in the filter carry more weight. In Kalman filter world, faster adjustment translates into a larger Kalman gain, which is defined as the ratio of state noise to statement noise and measurement noise combined.
@@ -144,13 +150,13 @@ We have to decide on the parameters for the filter. The video streams at a 25 pi
 
 In the update step, we inject some uncertainty into the state information and increment the noise of the process. In all, after many prediction and update steps, the state variance should converge to a number that is satisfactory for our purposes.
 
-Kalman filters ensure smooth averaging over many pixel instances.
+Kalman filters ensure smooth averaging over many pixel instances through a Bayesian update mechanism. In addition, the filters allow us to factor in more uncertainty over our beliefs if we fail to detect the lane lines over multiple instances.  
 
 ![]()
 
 ## Determining curvature and vehicle position with respect to center
 
-The radius and curvature is computed in `set_curve_radius`(https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L77).
+The radius and curvature is computed in [`set_curve_radius`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L77).
 
 ```
 def set_curve_radius(self, order=2):
@@ -186,3 +192,9 @@ right.process_image(right_points)
 # annotate the image with metadata
 new_img = overlay_detected_lane(img, transformer, warped_image, left, right)
 ```
+__Project Video__
+![Video]()
+__Challenge Video__
+![Challenge Video]()
+__Harder Challenge Video__
+![Very Challenging Video]()

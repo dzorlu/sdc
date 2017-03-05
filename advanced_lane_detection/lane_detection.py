@@ -111,16 +111,19 @@ class Line(KalmanFilter1D):
     def process_image(self, pts):
         self.pts = pts
         self.increment_detection_count()
-        self.fit_poly_lanes()
-        self.set_fitted_x()
-        # kalman update baseline next step
-        self.update(self.x)
-        # Using updated step, calculate the following:
-        # curvature update
-        self.set_curve_radius()
-        # base position update
-        self.set_base_position()
-
+        if len(self.pts) > 0:
+            self.fit_poly_lanes()
+            self.set_fitted_x()
+            # kalman update baseline next step
+            self.update(self.x)
+            # Using updated step, calculate the following:
+            # curvature update
+            self.set_curve_radius()
+            # base position update
+            self.set_base_position()
+        else:
+            # If no points found, predict the next step
+            self.predict()
 
 def overlay_detected_lane(img, transformer, warped, left, right, show_weighted = True):
     # TODO: Apply it on undiscorted image
