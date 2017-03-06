@@ -22,12 +22,11 @@ class KalmanFilter1D(object):
   def predict(self,):
     # random prediction.
     self.noise = self.noise + self.measurement_noise
-    _random_error = np.sqrt(self.noise) * np.random.rand(1)
-    self.s = self.s + _random_error
+    _random_error = np.sqrt(self.noise) * np.random.randn(1)
+    self.state = self.state + _random_error
 
   def step(self, update):
     self.update(update)
-    self.predict()
 
   @property
   def state(self):

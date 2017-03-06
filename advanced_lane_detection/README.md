@@ -147,16 +147,12 @@ A lower measurement noise returns a higher kalman gain, which pulls the current 
 _residual = update - self.s
 self.s = _kalman_gain * _residual + self.s
 ```
+In the update step, when we cannot detect a lane line for a given frame, we inject some uncertainty into the state information and increment the noise of the process. In all, after many prediction and update steps, the state variance should converge to a number that is satisfactory for our purposes. Kalman filters ensure smooth averaging over many pixel instances through a Bayesian update mechanism. In addition, the filters allow us to factor in more uncertainty over our beliefs if we fail to detect the lane lines over multiple instances.
 
-We have to decide on the parameters for the filter. The video streams at a 25 pixels per second. Kalman filter is initialized such that it takes 1 second for the filter completely adjust to the measurement difference of 25 pixels. For example, given the previous state of the pixel at x = 200 and the constant measurement at x = 225, the lane tracking object will take 1 second to shift the state of the pixel point completely. Pixels in the horizon adjust twice faster and the adjustment speed increases monotonically from the front of the car out to the horizon. This means that we have lower measurement noise as we go out to horizon. The implementation details of the filter can be found in [kalman_filter.py](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filter.py)
-
-In the update step, we inject some uncertainty into the state information and increment the noise of the process. In all, after many prediction and update steps, the state variance should converge to a number that is satisfactory for our purposes.
-
-Kalman filters ensure smooth averaging over many pixel instances through a Bayesian update mechanism. In addition, the filters allow us to factor in more uncertainty over our beliefs if we fail to detect the lane lines over multiple instances.
+There are few filters in place that `evaluate` method The implementation details of the filter can be found in [kalman_filter.py](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filter.py)
 
 
 ## Determining curvature and vehicle position with respect to center
-
 The radius and curvature is computed in [`set_curve_radius`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L77).
 
 ```
@@ -195,6 +191,8 @@ right.process_image(right_points)
 # annotate the image with metadata
 new_img = overlay_detected_lane(img, transformer, warped_image, left, right)
 ```
+
+Annotated clips can be found below:
 
 [Project Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_project_video.mp4)
 

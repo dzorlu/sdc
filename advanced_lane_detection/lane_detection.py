@@ -73,7 +73,6 @@ class Line(KalmanFilter1D):
         ##Kalman Filter
         super(Line, self).__init__(*args, **kwargs)
 
-
     def set_curve_radius(self, order=2):
         """Curve Radius Based on Smoothed Lane Lines"""
         fit_cr = np.polyfit(self.y * self.ym_per_pix, self.state * self.xm_per_pix, order)
@@ -99,7 +98,7 @@ class Line(KalmanFilter1D):
     def increment_detection_count(self):
         """Increment the detection count - times input was available"""
         _cnt = self.detection_count
-        if len(self.pts) >0:
+        if len(self.pts) > 0:
             # Success
             self.detection_count = (_cnt[0]+1, _cnt[1])
             self.detected = True
@@ -108,25 +107,54 @@ class Line(KalmanFilter1D):
             self.detection_count = (_cnt[0], _cnt[1]+1)
             self.detected = False
 
-    def evaluate(self,threshold = 25):
-        valid = True
-        # Account for initial pixels
-        if self.detection_count[0] <= 10:
-            return valid
-        # Reject is baseline is pixels away
-        if abs(self.x[-1] > self.state[-1]) > threshold:
-            self.rejected_images += 1
-            valid = False
-        return valid
+    def reject_crossing_pixels(self, next_filter):
+        # Compare fits. If crossing occurs reject.
+        if (next_filter.state < self.x).all() or (next_filter.state > self.x).all():
+            return False
+        else:
+            return True
 
-    def process_image(self, pts):
+    def evaluate(self, next_filter, threshold = 100):
+        valid = True
+        # Account for initial pixels. warmup. 1 sec.
+        # Proposed regions should stay inside the image.
+        if self.detection_count[0] >= 25:
+            # Reject if baseline and top are pixels too far away from current state
+            # Reject if x coordinates cross
+            if abs(self.x[-1] - self.state[-1]) > threshold or abs(self.x[0] - self.state[0]) > threshold:
+                print("reject proposal {} state {} ".format(self.x[-1], self.state[-1]))
+                print("reject proposal {} state {} ".format(self.x[0], self.state[0]))
+                self.rejected_images += 1
+                self.detected = False
+
+            if self.reject_crossing_pixels(next_filter):
+                print("reject crossing pixels")
+                self.rejected_images += 1
+                self.detected = False
+
+            if self.x[0] < 0 or self.x > 1280:
+                print("proposed region outside")
+                self.rejected_images += 1
+                self.detected = False
+
+    def set_weighted_x(self, w = 0.9):
+    # Initial state
+        if self.detection_count[0]<=10:
+            self.state = self.x
+        else:
+            self.state = w * self.state+ (1-w) * self.x
+
+    def process_image(self, pts, next_filter):
         self.pts = pts
         self.increment_detection_count()
         if len(self.pts) > 0:
             self.fit_poly_lanes()
             self.set_fitted_x()
-            # Reject if incoming polynomial fit is too far away
-            if self.evaluate():
+            # Reject if incoming polynomial fit is too far away from current state
+            # or pixels from current proposal crosses the state of
+            # the previous line state
+            self.evaluate(next_filter)
+            if self.detected:
                 # kalman update baseline next step
                 self.update(self.x)
                 # Using updated step, calculate the following:
@@ -134,12 +162,14 @@ class Line(KalmanFilter1D):
                 self.set_curve_radius()
                 # base position update
                 self.set_base_position()
+            else:
+                # If no points found, predict the next step
+                self.predict()
         else:
             # If no points found, predict the next step
             self.predict()
 
 def overlay_detected_lane(img, transformer, warped, left, right, show_weighted = True):
-    # TODO: Apply it on undiscorted image
     warp_zero = np.zeros_like(warped).astype(np.uint8)
     color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
 
@@ -164,6 +194,9 @@ def overlay_detected_lane(img, transformer, warped, left, right, show_weighted =
     # detection
     _str = "lane detected? Left: {} Right: {}".format(left.detected, right.detected)
     cv2.putText(new_img, _str, (10,100), FONT, 1,(255,255,255), 2, cv2.LINE_AA)
+    # top pixel
+    # _str = "top pixel: Left -> {} Right -> {}".format(round(left.state[0],1), round(right.state[0],1))
+    # cv2.putText(new_img, _str, (10,130), FONT, 1,(255,255,255), 2, cv2.LINE_AA)
     return new_img
 
 def process(img, transformer, left, right):
@@ -171,10 +204,11 @@ def process(img, transformer, left, right):
     # separete points into left and right
     left_points, right_points = identify_points(warped_image)
     # update step. process each half separately.
-    left.process_image(left_points)
-    right.process_image(right_points)
+    left.process_image(left_points, right)
+    right.process_image(right_points, left)
     # draw - recast the x and y points into usable format for cv2.fillPoly()
-    new_img = overlay_detected_lane(img, transformer, warped_image, left, right)
+    und = transformer.undistort_image(img)
+    new_img = overlay_detected_lane(und, transformer, warped_image, left, right)
     return new_img
 
 if __name__ == '__main__':
