@@ -112,9 +112,10 @@ The Kalman filters consist of prediction and updates states. In the update state
 
 If the image did not produce any pixels to work on, the `process_image` method proceeds with the predict step.
 
-Before I discuss the methodology in more detail, I want to talk about the lane tracking pipeline. Lane tracking update is performed with the [`process_image`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L128) method shown below.
+Before I discuss the methodology in more detail, I want to talk about the lane tracking pipeline. Lane tracking update is performed with the [`process_image`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L147) method shown below.
 
-Processing step takes in pixel points detected in the transformation pipeline and fits a polynomial function with `self.fit_poly_lanes()` to identify the curved line. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value, the `self.set_fitted_x()` method uses static y-axis to predict the x-values for a given lane pixel located in (x,y) coordinate. `self.evaluate()` is another filter that rejects polynomial fits that are too far away from the state of the Kalman filter.
+Processing step takes in pixel points detected in the transformation pipeline and fits a polynomial function with `self.fit_poly_lanes()` to identify the curved line. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value, the `self.set_fitted_x()` method uses static y-axis to predict the x-values for a given lane pixel located in (x,y) coordinate. [`self.evaluate()`]((https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L117)) rejects proposed polynomial fits that are too far away from the state of the Kalman filter or when left and right lanes cross.
+
 
 ```
 def process_image(self, pts, next_filter):
@@ -143,7 +144,7 @@ def process_image(self, pts, next_filter):
         self.predict()
 ```
 
-Next, we update the filter state with `self.update()`. We could be tracking several things including the polynomial coefficients or the points in the image. For this project, I decided to track the points instead of the polynomial fit because I find it more intuitive. It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle. Secondly, I assume independence between the points I track. This is a gross simplification because the neighboring points in a lane are dependent on each other.  Third, because the points in the horizon should move faster, the measurement updates in the filter carry more weight. In Kalman filter world, faster adjustment translates into a larger Kalman gain, which is defined as the ratio of state noise to statement noise and measurement noise combined.
+Next, we update the filter state with `self.update()`. We could track several things including the polynomial coefficients or the points in the image. For this project, I decided to track the points instead of the polynomial fit because I find it more intuitive. It should also be noted that the Kalman filter is an one-dimensional filter because we assume a constant velocity for the vehicle. Secondly, I assume independence between the points I track. This is a gross simplification because the neighboring points in a lane are dependent on each other.  Third, because the points in the horizon should move faster, the measurement updates in the filter carry more weight. In Kalman filter world, faster adjustment translates into a larger Kalman gain, which is defined as the ratio of state noise to statement noise and measurement noise combined.
 
 `_kalman_gain = self.state_noise / (self.state_noise + self.measurement_noise)`
 
@@ -153,13 +154,11 @@ A lower measurement noise returns a higher kalman gain, which pulls the current 
 _residual = update - self.s
 self.s = _kalman_gain * _residual + self.s
 ```
-In the update step, when we cannot detect a lane line for a given frame, we inject some uncertainty into the state information and increment the noise of the process. In all, after many prediction and update steps, the state variance should converge to a number that is satisfactory for our purposes. Kalman filters ensure smooth averaging over many pixel instances through a Bayesian update mechanism. In addition, the filters allow us to factor in more uncertainty over our beliefs if we fail to detect the lane lines over multiple instances. The implementation details of the filter can be found in [kalman_filter.py](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filter.py)
 
-During processing of the images, the [filters](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L117) in place ensure to reject proposed lines including cases where left and right lanes cross or when the proposed lines are too far away from the current state of the filter.
-
+In the update step, if the lane detection fails for a given frame, we inject some uncertainty into the state information and increment the noise of the process. Kalman filters ensure smooth averaging over many pixel instances through a Bayesian update mechanism. In addition, the filters allow us to factor in more uncertainty over our beliefs if we fail to detect the lane lines over multiple instances. The implementation details of the filter can be found in [kalman_filter.py](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filter.py)
 
 ## Determining curvature and vehicle position with respect to center
-The radius and curvature is computed in [`set_curve_radius`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L77).
+The radius and curvature is computed in [`set_curve_radius`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L83).
 
 ```
 def set_curve_radius(self, order=2):
@@ -170,7 +169,7 @@ def set_curve_radius(self, order=2):
     self.radius_of_curvature = curverad
 ```
 
-The [vehicle position](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L145) with respect to center is computed as the distance of mean of both left and right base points to the center of the image, which in our case is assumed to be the center of the vehicle.
+The [vehicle position](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L194) with respect to center is computed as the distance of mean of both left and right base points to the center of the image, which in our case is assumed to be the center of the vehicle.
 
 In both cases, we make sure that distances in terms of pixels are translated into real world distances.
 ```
@@ -178,13 +177,13 @@ ym_per_pix = 30/720 # meters per pixel in y dimension
 xm_per_pix = 3.7/700 # meters per pixel in x dimension
 ```
 ## Warping the detected lanes back to original image
-Finally, we warp back the image back to the its original viewpoint. [`overlay_detected_lane`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L125) method does the transformation, finalizes the radius and distance calculations and annotates the output image along with the lane boundaries.
+Finally, we warp back the image back to the its original viewpoint. [`overlay_detected_lane`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L175) method does the transformation, finalizes the radius and distance calculations and annotates the output image along with the lane boundaries.
 
 The steps described above produces the final output for a given image.
 ![Image](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/writeup_images/output.png)
 
 # Summary and Results
-The complete transformation pipeline is run via [`process`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L153) helper method.
+The complete transformation pipeline is run via [`process`](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L205) helper method.
 
 ```
 warped_image = transformer.transform(img)
