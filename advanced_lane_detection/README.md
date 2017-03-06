@@ -205,4 +205,4 @@ Annotated clips can be found below:
 
 [Harder Challenge Video](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/annotated_harder_challange_video.mp4)
 
-This is an initial version of advanced computer-vision-based lane finding. The lane finder still has hard time with the challenge videos, where lighting angles or the presence of the cars can easily trick the system. In situations where the road curves aggressively also turns out to be problematic for the lane finder. More work needs to be done to both improve the lane detection and calibration of the filter to obtain more robust results.
+This is an initial version of advanced computer-vision-based lane finding. The lane finder still has hard time with the challenge videos, where lighting angles or the presence of the cars can easily trick the system. In situations where the road curves aggressively turns out to be problematic for the lane finder. More work needs to be done to both improve the lane detection and calibration of the filter to obtain more robust results.
