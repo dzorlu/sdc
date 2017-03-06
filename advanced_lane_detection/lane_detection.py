@@ -115,7 +115,6 @@ class Line(KalmanFilter1D):
             return True
 
     def evaluate(self, next_filter, threshold = 100):
-        valid = True
         # Account for initial pixels. warmup. 1 sec.
         # Proposed regions should stay inside the image.
         if self.detection_count[0] >= 25:
@@ -124,6 +123,7 @@ class Line(KalmanFilter1D):
             if abs(self.x[-1] - self.state[-1]) > threshold or abs(self.x[0] - self.state[0]) > threshold:
                 print("reject proposal {} state {} ".format(self.x[-1], self.state[-1]))
                 print("reject proposal {} state {} ".format(self.x[0], self.state[0]))
+                #print("kalman noise {}".format(self.noise))
                 self.rejected_images += 1
                 self.detected = False
 
@@ -132,7 +132,7 @@ class Line(KalmanFilter1D):
                 self.rejected_images += 1
                 self.detected = False
 
-            if self.x[0] < 0 or self.x > 1280:
+            if min(self.x) < 0 or max(self.x) > 1280:
                 print("proposed region outside")
                 self.rejected_images += 1
                 self.detected = False
@@ -168,6 +168,9 @@ class Line(KalmanFilter1D):
         else:
             # If no points found, predict the next step
             self.predict()
+        print(np.mean(self.state))
+        print("*****")
+
 
 def overlay_detected_lane(img, transformer, warped, left, right, show_weighted = True):
     warp_zero = np.zeros_like(warped).astype(np.uint8)

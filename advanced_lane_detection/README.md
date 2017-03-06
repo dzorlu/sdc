@@ -117,14 +117,17 @@ Before I discuss the methodology in more detail, I want to talk about the lane t
 Processing step takes in pixel points detected in the transformation pipeline and fits a polynomial function with `self.fit_poly_lanes()` to identify the curved line. Because the lane lines in the warped image are near vertical and may have the same x value for more than one y value, the `self.set_fitted_x()` method uses static y-axis to predict the x-values for a given lane pixel located in (x,y) coordinate. `self.evaluate()` is another filter that rejects polynomial fits that are too far away from the state of the Kalman filter.
 
 ```
-def process_image(self, pts):
+def process_image(self, pts, next_filter):
     self.pts = pts
     self.increment_detection_count()
     if len(self.pts) > 0:
         self.fit_poly_lanes()
         self.set_fitted_x()
-        # Reject if incoming polynomial fit is too far away
-        if self.evaluate():
+        # Reject if incoming polynomial fit is too far away from current state
+        # or pixels from current proposal crosses the state of
+        # the previous line state
+        self.evaluate(next_filter)
+        if self.detected:
             # kalman update baseline next step
             self.update(self.x)
             # Using updated step, calculate the following:
@@ -132,6 +135,9 @@ def process_image(self, pts):
             self.set_curve_radius()
             # base position update
             self.set_base_position()
+        else:
+            # If no points found, predict the next step
+            self.predict()
     else:
         # If no points found, predict the next step
         self.predict()
@@ -149,7 +155,7 @@ self.s = _kalman_gain * _residual + self.s
 ```
 In the update step, when we cannot detect a lane line for a given frame, we inject some uncertainty into the state information and increment the noise of the process. In all, after many prediction and update steps, the state variance should converge to a number that is satisfactory for our purposes. Kalman filters ensure smooth averaging over many pixel instances through a Bayesian update mechanism. In addition, the filters allow us to factor in more uncertainty over our beliefs if we fail to detect the lane lines over multiple instances. The implementation details of the filter can be found in [kalman_filter.py](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/kalman_filter.py)
 
-During processing of the images, the [filters](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L111) in place ensure to reject proposed lines including cases where left and right lanes cross or when the proposed lines are too far away from the current state of the filter.
+During processing of the images, the [filters](https://github.com/dzorlu/sdc/blob/master/advanced_lane_detection/lane_detection.py#L117) in place ensure to reject proposed lines including cases where left and right lanes cross or when the proposed lines are too far away from the current state of the filter.
 
 
 ## Determining curvature and vehicle position with respect to center
