@@ -13,7 +13,7 @@ def save_model(model_fit, model_name):
     _file.close()
     print("Model {} saved..".format(model_name))
 
-def train_model(X,Y):
+def train_model(X,y):
     t=time.time()
 
     # Scaler
@@ -23,7 +23,7 @@ def train_model(X,Y):
     X = scaler.transform(X)
 
     # SVM Fit
-    svc = LinearSVC()
+    svc = LinearSVC(penalty='l2')
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     svc.fit(X_train, y_train)
     print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))

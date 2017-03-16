@@ -5,6 +5,7 @@ from sklearn.svm import LinearSVC
 from skimage.feature import hog
 import cv2
 import numpy as np
+import os
 
 ORIENT = 9 # number of bins
 PIX_PER_CELL = 8
