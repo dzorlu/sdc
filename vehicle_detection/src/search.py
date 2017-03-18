@@ -12,8 +12,10 @@ from matplotlib import pyplot as plt
 from .preprocessing import *
 
 MODEL_PATH = "saved_models/"
-Q_SIZE = 3
+Q_SIZE = 4
 DEBUG = True
+MULTIPROCESSING = True
+Y_CROP_TOP = 375
 
 # Define a function you will pass an image
 # and the list of windows to be searched (output of slide_windows())
@@ -37,6 +39,8 @@ def _find_proposed_regions(img,
     # Crop and Resize
     img = img[y_crop[0]:y_crop[1],:,:]
     _img = cv2.resize(img, (np.int(img.shape[1]/scale), np.int(img.shape[0]/scale)))
+    plt.imshow(_img)
+    plt.show()
     # Define blocks and steps
     nb_x_blocks = (_img.shape[1] // pix_per_cell) - 1
     nb_y_blocks = (_img.shape[0] // pix_per_cell) - 1
@@ -52,6 +56,13 @@ def _find_proposed_regions(img,
     # feature_vec is set to False because we sample from the HOG space
     _hog = create_hog_features(_img, path=False, feature_vec=False)
     proposed_regions = []
+    # if DEBUG:
+    #     print("{} {} Img size {}".format(scale, y_crop, _img.shape))
+    #     print("{} {} nb_y_blocks {}, ".format(scale, y_crop, nb_y_blocks))
+    #     print("{} {} cells_per_step {}".format(scale, y_crop, cells_per_step))
+    #     print("{} {} nb_blocks_per_window {}".format(scale, y_crop, nb_blocks_per_window))
+    #     print("{} {} Nb of y steps {}".format(scale, y_crop, nb_y_steps))
+    #     print("***")
     for xb in range(nb_x_steps):
         for yb in range(nb_y_steps):
             y = yb * cells_per_step
@@ -152,16 +163,16 @@ class Detector(object):
         self.heatmap = np.zeros(image_size).astype(np.float)
         self.masked_heatmap = np.zeros(image_size).astype(np.float)
         self.decay = 0.25 # decrement at each step
-        self.threshold = 8.
+        self.threshold = 12.
         self.proposed_regions = []
         # Tuple: (pixels, nb_labels found)
         self.labels = None
         self.nb_frames_processed = 0
         # Windowing at various scales
         # Closer, farther
-        self.scales = [4, 3, 2, 1]
-        self.cells_per_step = [1, 1, 1, 1]
-        self.y_crops = [(400,656), (400,600), (400,550), (400,500)]
+        self.scales = [3, 2, 2, 1]
+        self.cells_per_step = [1, 1, 1, 2]
+        self.y_crops = [(Y_CROP_TOP,650), (Y_CROP_TOP,600), (Y_CROP_TOP,550), (Y_CROP_TOP,500)]
 
         # Load scaler and SVM
         _file = open(MODEL_PATH+"/standard_scaler",'rb')
@@ -178,15 +189,23 @@ class Detector(object):
 
 
     def find_proposed_regions(self):
-        results = []
-        for step, scale, y_crop  in zip(self.cells_per_step,
-            self.scales, self.y_crops):
-            result = self.pool.apply_async(_find_proposed_regions, (
-                self.image, scale, step, y_crop, self.detection_model, self.scaler,
-            ))
-            results.append(result)
-
-        proposed_regions = list(chain(*[r.get() for r in results]))
+        if MULTIPROCESSING:
+            results = []
+            for step, scale, y_crop  in zip(self.cells_per_step,
+                self.scales, self.y_crops):
+                result = self.pool.apply_async(_find_proposed_regions, (
+                    self.image, scale, step, y_crop, self.detection_model, self.scaler,
+                ))
+                results.append(result)
+            proposed_regions = list(chain(*[r.get() for r in results]))
+        else:
+            proposed_regions = []
+            for step, scale, y_crop  in zip(self.cells_per_step,
+                self.scales, self.y_crops):
+                result = _find_proposed_regions(self.image,
+                    scale, step, y_crop,
+                    self.detection_model, self.scaler)
+                proposed_regions.extend(result)
         print("{} proposed regions".format(len(proposed_regions)))
         if proposed_regions:
             self.proposed_regions = proposed_regions
@@ -221,7 +240,7 @@ class Detector(object):
                 nonzero = (self.labels[0] == i).nonzero()
                 # Define a bounding box based on min/max x and y
                 # Plus some padding
-                _padding = 20
+                _padding = 10
                 _region = ((np.min(nonzero[1]) - _padding,
                             np.min(nonzero[0]) - _padding),
                            (np.max(nonzero[1]) + _padding,
@@ -257,7 +276,6 @@ class Detector(object):
         if self.proposed_regions:
             draw_img = self.image.copy()
             for proposed_region in self.proposed_regions:
-                # (0, 416, 64, 480)
                 x1, y1, x2, y2 = proposed_region
                 cv2.rectangle(draw_img,(x1, y1),(x2,y2),(0,0,255),6)
         # Return the image
