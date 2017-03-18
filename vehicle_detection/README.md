@@ -54,7 +54,9 @@ self.cells_per_step = [1, 1, 1, 2]
 self.y_crops = [(Y_CROP_TOP,650), (Y_CROP_TOP,600), (Y_CROP_TOP,550), (Y_CROP_TOP,500)]
 ```
 
-I hand-tunes  on the sliding window structure.
+I hand-tunes on the sliding window structure to accommodate enough number of sliding windows in each dimension. The parameters and the sub-image each window is processing can be seen below:
+
+![Windows](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/images/Screen%20Shot%202017-03-17%20at%202.30.53%20PM.png)
 
 
 
