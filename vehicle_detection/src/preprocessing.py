@@ -12,6 +12,7 @@ CELL_PER_BLOCK = 2
 HOG_CHANNEL = [0,1,2] # Can be 0, 1, 2
 
 VEHICLE_IMG_FOLDER, NONVEHICLE_IMG_FOLDER = "training_images/vehicles", "training_images/non-vehicles"
+FALSE_POSITIVES = "training_images/false-positives"
 
 # Define a function to return HOG features and visualization
 def create_hog_features(img_path,
@@ -74,9 +75,15 @@ def read_images(nb_samples = 10000):
     for (path, dirs, files) in os.walk(NONVEHICLE_IMG_FOLDER):
         _full_path = [path + "/" + _file for _file in files]
         non_vehicle_img_array.extend(_full_path)
+
+    _false_positives = [FALSE_POSITIVES + "/" + _file for _file in os.listdir(FALSE_POSITIVES)]
+    print("{} false positives found".format(len(_false_positives)))
+
     if nb_samples:
         random.shuffle(vehicle_img_array)
         random.shuffle(non_vehicle_img_array)
+    # Always pick false positives for training
+    non_vehicle_img_array = _false_positives + non_vehicle_img_array
     return vehicle_img_array[:nb_samples//2], non_vehicle_img_array[:nb_samples//2]
 
 def create_feature_space():

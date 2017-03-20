@@ -8,6 +8,7 @@ import multiprocessing as mp
 from multiprocessing.pool import Pool
 from itertools import chain
 from matplotlib import pyplot as plt
+import uuid
 
 from .preprocessing import *
 
@@ -15,6 +16,7 @@ MODEL_PATH = "saved_models/"
 Q_SIZE = 4
 DEBUG = True
 MULTIPROCESSING = True
+COLLECT_DATA = True
 Y_CROP_TOP = 375
 
 # Define a function you will pass an image
@@ -35,12 +37,13 @@ def _find_proposed_regions(img,
     orient = 9
     cell_per_block = 2
     """
+    thresholded = []
 
     # Crop and Resize
     img = img[y_crop[0]:y_crop[1],:,:]
     _img = cv2.resize(img, (np.int(img.shape[1]/scale), np.int(img.shape[0]/scale)))
-    plt.imshow(_img)
-    plt.show()
+    # plt.imshow(_img)
+    # plt.show()
     # Define blocks and steps
     nb_x_blocks = (_img.shape[1] // pix_per_cell) - 1
     nb_y_blocks = (_img.shape[0] // pix_per_cell) - 1
@@ -56,6 +59,7 @@ def _find_proposed_regions(img,
     # feature_vec is set to False because we sample from the HOG space
     _hog = create_hog_features(_img, path=False, feature_vec=False)
     proposed_regions = []
+    image_hist_feature = create_color_hist(_img, path=False).reshape(1,-1)
     # if DEBUG:
     #     print("{} {} Img size {}".format(scale, y_crop, _img.shape))
     #     print("{} {} nb_y_blocks {}, ".format(scale, y_crop, nb_y_blocks))
@@ -80,9 +84,19 @@ def _find_proposed_regions(img,
             hist_features = create_color_hist(_img_hist, path=False).reshape(1,-1)
             features = np.concatenate((hog_features, hist_features),axis=1)
 
+            _thresholded = hls_thresholding(_img_hist,2)
+            thresholded.append(_thresholded)
+
             # Scale features and make a prediction
             test_features = scaler.transform(features)
-            if svc.predict(test_features):
+            if svc.predict(test_features) and _thresholded <= 0.9:
+                if COLLECT_DATA:
+                    # Save randomly to train on false positives later on
+                    if np.random.uniform(0,1) < 0.1:
+                        img_name = uuid.uuid4().hex
+                        # Convert back to RGB
+                        img_to_save = cv2.cvtColor(_img_hist, cv2.COLOR_BGR2RGB)
+                        cv2.imwrite("images/{}.png".format(img_name),img_to_save)
 
                 xbox_left = np.int(xleft * scale)
                 ytop_draw = np.int(ytop * scale)
@@ -95,7 +109,21 @@ def _find_proposed_regions(img,
                     xbox_left + win_draw,
                     ytop_draw + win_draw + y_crop[0])
                 )
+    # Thresdhold summary stats
+    # if thresholded:
+    #     print("Thresholded saturation summary:")
+    #     print(np.histogram(np.array(thresholded),np.linspace(0,1,9))[0])
     return proposed_regions
+
+# channel thresholding
+def hls_thresholding(img, channel_ix, threshold=(120,255)):
+    """HLS thresholding"""
+    # channel in HLS
+    hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+    channel = hls[:,:,channel_ix]
+    _, binary = cv2.threshold(channel.astype('uint8'), threshold[0], threshold[1], cv2.THRESH_BINARY)
+    proportion_of_thresholded = (binary == 0).sum() / (binary.shape[0] * binary.shape[1])
+    return proportion_of_thresholded
 
 def non_max_suppression(boxes, threshold=0.3):
 	# if there are no boxes, return an empty list
@@ -163,7 +191,7 @@ class Detector(object):
         self.heatmap = np.zeros(image_size).astype(np.float)
         self.masked_heatmap = np.zeros(image_size).astype(np.float)
         self.decay = 0.25 # decrement at each step
-        self.threshold = 12.
+        self.threshold = 5.
         self.proposed_regions = []
         # Tuple: (pixels, nb_labels found)
         self.labels = None
