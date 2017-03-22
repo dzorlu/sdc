@@ -16,6 +16,7 @@ HOG_CHANNEL = [0,1,2] # Can be 0, 1, 2
 
 VEHICLE_IMG_FOLDER, NONVEHICLE_IMG_FOLDER = "training_images/vehicles", "training_images/non-vehicles"
 FALSE_POSITIVES = "training_images/false-positives"
+FALSE_NEGATIVES = "training_images/false-negatives"
 CNN_VEHICLE_FOLDER = "training_images/cnn/vehicles/"
 CNN_NON_VEHICLE_FOLDER = "training_images/cnn/non-vehicles/"
 
@@ -83,12 +84,15 @@ def read_images(nb_samples = 10000):
 
     _false_positives = [FALSE_POSITIVES + "/" + _file for _file in os.listdir(FALSE_POSITIVES)]
     print("{} false positives found".format(len(_false_positives)))
+    _false_negatives = [FALSE_NEGATIVES + "/" + _file for _file in os.listdir(FALSE_NEGATIVES)]
+    print("{} false negatives found".format(len(_false_negatives)))
 
     if nb_samples:
         random.shuffle(vehicle_img_array)
         random.shuffle(non_vehicle_img_array)
-    # Always pick false positives for training
+    # Always pick false positives and false negatives for training
     non_vehicle_img_array = _false_positives + non_vehicle_img_array
+    vehicle_img_array = _false_negatives + vehicle_img_array
     return vehicle_img_array[:nb_samples//2], non_vehicle_img_array[:nb_samples//2]
 
 def create_feature_space_for_fast_classifier():
@@ -134,6 +138,7 @@ def create_feature_space_for_cnn():
     vehicles = np.array([cv2.imread(_img) for _img in vehicle_img_path])
     non_vehicles = np.array([cv2.imread(_img) for _img in non_vehicle_img_path])
     print("Loaded images...")
+    print(vehicles.shape, non_vehicles.shape)
 
     X = np.vstack((vehicles, non_vehicles)).astype(np.float64)
     y = np.hstack((np.ones(vehicles.shape[0]), np.zeros(non_vehicles.shape[0])))
@@ -149,12 +154,17 @@ def copy_images():
     for (path, dirs, files) in os.walk(NONVEHICLE_IMG_FOLDER):
         _full_path = [path + "/" + _file for _file in files]
         non_vehicle_img_array.extend(_full_path)
-
     print("{} images found".format(len(vehicle_img_array) + len(non_vehicle_img_array)))
 
     _false_positives = [FALSE_POSITIVES + "/" + _file for _file in os.listdir(FALSE_POSITIVES)]
+    _false_negatives = [FALSE_NEGATIVES+ "/" + _file for _file in os.listdir(FALSE_NEGATIVES)]
+    print("{} augmented data found".format(len(_false_positives) + len(_false_negatives)))
 
     for _img in vehicle_img_array:
+        dst = CNN_VEHICLE_FOLDER + uuid.uuid4().hex + ".png"
+        copy2(_img, dst)
+
+    for _img in _false_negatives:
         dst = CNN_VEHICLE_FOLDER + uuid.uuid4().hex + ".png"
         copy2(_img, dst)
 

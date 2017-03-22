@@ -192,3 +192,40 @@ def train():
     X_val = _mean_substract(X_val)
     gen = ImageGenerator(BATCH_SIZE, X, y)
     train_cnn(gen, X_val, y_val)
+
+# tf.reset_default_graph()
+# saver = tf.train.import_meta_graph("saved_models/model.ckpt.meta",clear_devices=True)
+# gr = tf.get_default_graph()
+# print("Number of ops in TF Graph is {}".format(len(gr.get_operations())))
+# _X_val, _y_val = X_val[:50], y_val[:50]
+# print(Counter(y_val[:50]), print(_X_val.shape))
+
+# with tf.Session() as sess:
+#     gr = tf.get_default_graph()
+#     print("Number of ops in TF Graph is {}".format(len(gr.get_operations())))
+#     latest_checkpoint = tf.train.latest_checkpoint(MODEL_PATH)
+#     print("checkpoint : {}".format(latest_checkpoint))
+#     saver.restore(sess, latest_checkpoint)
+#     logits_ops = tf.get_collection("logits")[0]
+#     print(logits_ops)
+#     input_tensor = tf.get_collection("input")[0]
+#     print(input_tensor)
+#     accuracy_tensor = tf.get_collection("accuracy")[0]
+#     y_tensor = gr.get_collection("labels")[0]
+
+#     def evaluate(X_data, y_data):
+#         num_examples = len(X_data)
+#         total_accuracy = 0
+#         for offset in range(0, num_examples, BATCH_SIZE):
+#             batch_x, batch_y = X_data[offset:offset+BATCH_SIZE], y_data[offset:offset+BATCH_SIZE]
+#             accuracy = sess.run(accuracy_tensor, feed_dict={input_tensor: batch_x, y_tensor: batch_y})
+#             total_accuracy += (accuracy * len(batch_x))
+#         return total_accuracy / num_examples
+
+#     def predict(_X_val):
+#         _predictions =  sess.run([logits_ops], feed_dict={input_tensor: _X_val})
+#         #print(_predictions)
+#         return _predictions[0].argmax(axis=1)
+
+#     #print(evaluate(_X_val, _y_val))
+#     print(predict(_X_val))

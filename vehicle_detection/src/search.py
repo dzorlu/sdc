@@ -18,7 +18,7 @@ CHECK_POINT_NAME = "model.ckpt"
 Q_SIZE = 4
 DEBUG = True
 MULTIPROCESSING = True
-COLLECT_DATA = False
+COLLECT_DATA = True
 Y_CROP_TOP = 375
 
 
@@ -91,7 +91,7 @@ def _find_proposed_regions(img,
 
             # Scale features and make a prediction
             test_features = scaler.transform(features)
-            if svc.predict(test_features) and _thresholded <= 0.8:
+            if svc.predict(test_features) and _thresholded <= 0.75:
 
                 if COLLECT_DATA:
                     # Save randomly to train on false positives later on
@@ -105,14 +105,15 @@ def _find_proposed_regions(img,
                 ytop_draw = np.int(ytop * scale)
                 win_draw = np.int(window * scale)
 
+                _padding = 25
                 proposed_regions.append({
                     'proposed_image': _img_hist,
                     # Tuple denoting the corners
                     'corners':
                         (xbox_left,
                         ytop_draw + y_crop[0],
-                        xbox_left + win_draw,
-                        ytop_draw + win_draw + y_crop[0])
+                        xbox_left + win_draw + _padding,
+                        ytop_draw + win_draw + y_crop[0] + _padding)
                 }
                 )
     return proposed_regions
@@ -136,16 +137,18 @@ class Detector(object):
         # Derived Fields
         self.heatmap = np.zeros(image_size).astype(np.float)
         self.masked_heatmap = np.zeros(image_size).astype(np.float)
-        self.decay = 0.25 # decrement at each step
-        self.threshold = 4.
+        self.decay = 0.2 # decrement at each step
+        self.threshold = 1.2
+        self.power = 2 # the weight placed on new observations with overlapping windows
         self.proposed_regions = []
+        self.accepted_regions = []
         # Tuple: (pixels, nb_labels found)
         self.labels = None
         self.nb_frames_processed = 0
         # Windowing at various scales
         # Closer, farther
         self.scales = [3, 2, 2, 1]
-        self.cells_per_step = [1, 1, 1, 2]
+        self.cells_per_step = [1, 1, 1, 1]
         self.y_crops = [(Y_CROP_TOP,650), (Y_CROP_TOP,600), (Y_CROP_TOP,550), (Y_CROP_TOP,500)]
 
         # Load scaler and SVM
@@ -204,18 +207,27 @@ class Detector(object):
 
         # Run the second classifier on proposed images
         # 1 == vehicle, 0 == non-vehicle
+        self.proposed_regions = [proposal['corners'] for proposal in proposed_regions]
         _images = np.array([pr['proposed_image'] for pr in proposed_regions])
+        self.accepted_regions = []
         if len(_images) > 0:
             _labels = self.predict(_images)
             filtered_regions = [_proposed_region['corners'] for _label, _proposed_region in zip(_labels, proposed_regions) if _label]
             if filtered_regions:
                 print("{} accepted regions".format(len(filtered_regions)))
-                self.proposed_regions = filtered_regions
+                self.accepted_regions = filtered_regions
 
     def update_heatmap(self):
+        """
+        Update the heatmap. More confidence in multiple detections
+        Threshold the heatmap.
+        Reject points that are less than a predetermined threshold
+        """
         current_heatmap = np.zeros_like(self.heatmap)
-        for box in self.proposed_regions:
+        for box in self.accepted_regions:
             current_heatmap[box[1]:box[3], box[0]:box[2]] += 1.
+        # Boost stops with multiple triangles.
+        current_heatmap = current_heatmap ** self.power
         print("Current: mean {} max {}".format(current_heatmap.mean(),current_heatmap.max()))
         # heatmap is the memory state for the Detector
         self.heatmap = (1 - self.decay) * self.heatmap + self.decay * current_heatmap
@@ -227,12 +239,12 @@ class Detector(object):
 
     def detect(self):
         """
-        Threshold the heatmap.
-        Reject points that are less than a predetermined threshold
         Find the labels
+        If no detection, keep the labels
         """
-        self.labels = label(self.masked_heatmap)
-        print("Found {} labels".format(self.labels[1]))
+        _labels = label(self.masked_heatmap)
+        print("Found {} label(s)".format(_labels[1]))
+        self.labels = _labels
 
     def get_labels(self):
         img = self.image.copy()
@@ -254,13 +266,15 @@ class Detector(object):
 
     def show_frame(self):
         plt.figure(figsize=(20,10))
-        plt.subplot(4,1,1)
+        plt.subplot(5,1,1)
         self.show_proposed_regions()
-        plt.subplot(4,1,2)
+        plt.subplot(5,1,2)
+        self.show_accepted_regions()
+        plt.subplot(5,1,3)
         self.show_heatmap()
-        plt.subplot(4,1,3)
+        plt.subplot(5,1,4)
         self.show_masked_heatmap()
-        plt.subplot(4,1,4)
+        plt.subplot(5,1,5)
         self.show_labeled_image()
         plt.show()
 
@@ -275,11 +289,18 @@ class Detector(object):
         plt.imshow(self.get_labels())
 
     def show_proposed_regions(self):
-        if self.proposed_regions:
-            draw_img = self.image.copy()
-            for proposed_region in self.proposed_regions:
-                x1, y1, x2, y2 = proposed_region
-                cv2.rectangle(draw_img,(x1, y1),(x2,y2),(0,0,255),6)
+        draw_img = self.image.copy()
+        for proposed_region in self.proposed_regions:
+            x1, y1, x2, y2 = proposed_region
+            cv2.rectangle(draw_img,(x1, y1),(x2,y2),(0,0,255),6)
+        # Return the image
+        plt.imshow(draw_img)
+
+    def show_accepted_regions(self):
+        draw_img = self.image.copy()
+        for accepted_region in self.accepted_regions:
+            x1, y1, x2, y2 = accepted_region
+            cv2.rectangle(draw_img,(x1, y1),(x2,y2),(0,0,255),6)
         # Return the image
         plt.imshow(draw_img)
 
