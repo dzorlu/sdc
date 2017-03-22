@@ -9,15 +9,18 @@ from multiprocessing.pool import Pool
 from itertools import chain
 from matplotlib import pyplot as plt
 import uuid
+import tensorflow as tf
 
 from .preprocessing import *
 
 MODEL_PATH = "saved_models/"
+CHECK_POINT_NAME = "model.ckpt"
 Q_SIZE = 4
 DEBUG = True
 MULTIPROCESSING = True
-COLLECT_DATA = True
+COLLECT_DATA = False
 Y_CROP_TOP = 375
+
 
 # Define a function you will pass an image
 # and the list of windows to be searched (output of slide_windows())
@@ -25,7 +28,9 @@ def _find_proposed_regions(img,
         scale,
         cells_per_step ,
         y_crop,
-        svc, scaler,
+        svc,
+        saver,
+        scaler,
         orient = 9,
         pix_per_cell = 8,
         cell_per_block = 2,
@@ -37,8 +42,6 @@ def _find_proposed_regions(img,
     orient = 9
     cell_per_block = 2
     """
-    thresholded = []
-
     # Crop and Resize
     img = img[y_crop[0]:y_crop[1],:,:]
     _img = cv2.resize(img, (np.int(img.shape[1]/scale), np.int(img.shape[0]/scale)))
@@ -85,11 +88,11 @@ def _find_proposed_regions(img,
             features = np.concatenate((hog_features, hist_features),axis=1)
 
             _thresholded = hls_thresholding(_img_hist,2)
-            thresholded.append(_thresholded)
 
             # Scale features and make a prediction
             test_features = scaler.transform(features)
-            if svc.predict(test_features) and _thresholded <= 0.9:
+            if svc.predict(test_features) and _thresholded <= 0.8:
+
                 if COLLECT_DATA:
                     # Save randomly to train on false positives later on
                     if np.random.uniform(0,1) < 0.1:
@@ -102,17 +105,16 @@ def _find_proposed_regions(img,
                 ytop_draw = np.int(ytop * scale)
                 win_draw = np.int(window * scale)
 
-                proposed_regions.append(
+                proposed_regions.append({
+                    'proposed_image': _img_hist,
                     # Tuple denoting the corners
-                    (xbox_left,
-                    ytop_draw + y_crop[0],
-                    xbox_left + win_draw,
-                    ytop_draw + win_draw + y_crop[0])
+                    'corners':
+                        (xbox_left,
+                        ytop_draw + y_crop[0],
+                        xbox_left + win_draw,
+                        ytop_draw + win_draw + y_crop[0])
+                }
                 )
-    # Thresdhold summary stats
-    # if thresholded:
-    #     print("Thresholded saturation summary:")
-    #     print(np.histogram(np.array(thresholded),np.linspace(0,1,9))[0])
     return proposed_regions
 
 # channel thresholding
@@ -125,62 +127,6 @@ def hls_thresholding(img, channel_ix, threshold=(120,255)):
     proportion_of_thresholded = (binary == 0).sum() / (binary.shape[0] * binary.shape[1])
     return proportion_of_thresholded
 
-def non_max_suppression(boxes, threshold=0.3):
-	# if there are no boxes, return an empty list
-	if len(boxes) == 0:
-		return []
-
-	# if the bounding boxes integers, convert them to floats --
-	# this is important since we'll be doing a bunch of divisions
-	if boxes.dtype.kind == "i":
-		boxes = boxes.astype("float")
-
-	# initialize the list of picked indexes
-	pick = []
-
-	# grab the coordinates of the bounding boxes
-	x1 = boxes[:,0]
-	y1 = boxes[:,1]
-	x2 = boxes[:,2]
-	y2 = boxes[:,3]
-
-	# compute the area of the bounding boxes and sort the bounding
-	# boxes by the bottom-right y-coordinate of the bounding box
-	area = (x2 - x1 + 1) * (y2 - y1 + 1)
-	idxs = np.argsort(y2)
-
-	# keep looping while some indexes still remain in the indexes
-	# list
-	while len(idxs) > 0:
-		# grab the last index in the indexes list and add the
-		# index value to the list of picked indexes
-		last = len(idxs) - 1
-		i = idxs[last]
-		pick.append(i)
-
-		# find the largest (x, y) coordinates for the start of
-		# the bounding box and the smallest (x, y) coordinates
-		# for the end of the bounding box
-		xx1 = np.maximum(x1[i], x1[idxs[:last]])
-		yy1 = np.maximum(y1[i], y1[idxs[:last]])
-		xx2 = np.minimum(x2[i], x2[idxs[:last]])
-		yy2 = np.minimum(y2[i], y2[idxs[:last]])
-
-		# compute the width and height of the bounding box
-		w = np.maximum(0, xx2 - xx1 + 1)
-		h = np.maximum(0, yy2 - yy1 + 1)
-
-		# compute the ratio of overlap
-		overlap = (w * h) / area[idxs[:last]]
-
-		# delete all indexes from the index list that have
-		idxs = np.delete(idxs, np.concatenate(([last],
-			np.where(overlap > threshold)[0])))
-
-	# return only the bounding boxes that were picked using the
-	# integer data type
-	return boxes[pick].astype("int")
-
 class Detector(object):
     def __init__(self, orient, image_size, pix_per_cell, cell_per_block):
         self.orient = orient
@@ -191,7 +137,7 @@ class Detector(object):
         self.heatmap = np.zeros(image_size).astype(np.float)
         self.masked_heatmap = np.zeros(image_size).astype(np.float)
         self.decay = 0.25 # decrement at each step
-        self.threshold = 5.
+        self.threshold = 4.
         self.proposed_regions = []
         # Tuple: (pixels, nb_labels found)
         self.labels = None
@@ -208,13 +154,33 @@ class Detector(object):
         self.scaler = pickle.load(_file)
         _file.close()
 
+        # load the models
         _file = open(MODEL_PATH+"/linear_svm",'rb')
-        # load the object from the file
         self.detection_model = pickle.load(_file)
         _file.close()
 
+        # Retrieve the graph
+        self.saver = self.recover_model(MODEL_PATH + CHECK_POINT_NAME + ".meta")
+        # Multi-processing
         self.pool = mp.Pool(processes=Q_SIZE)
 
+    def recover_model(self, meta_filename):
+        return tf.train.import_meta_graph(meta_filename, clear_devices=True)
+
+    def predict(self, _X):
+        """Predict whether the image contains a vehicle or not"""
+        def mean_substract(img):
+            return (img / 255.).astype(np.float32)
+        _X = mean_substract(_X)
+        with tf.Session() as sess:
+            # Restore the variable within a session
+            latest_checkpoint = tf.train.latest_checkpoint(MODEL_PATH)
+            self.saver.restore(sess, latest_checkpoint)
+            logits_ops = tf.get_collection("logits")[0]
+            input_tensor = tf.get_collection("input")[0]
+            _predictions = sess.run(logits_ops, feed_dict={input_tensor: _X})
+        _predictions = np.array(_predictions)
+        return _predictions.reshape(-1,2).argmax(axis=1)
 
     def find_proposed_regions(self):
         if MULTIPROCESSING:
@@ -222,7 +188,7 @@ class Detector(object):
             for step, scale, y_crop  in zip(self.cells_per_step,
                 self.scales, self.y_crops):
                 result = self.pool.apply_async(_find_proposed_regions, (
-                    self.image, scale, step, y_crop, self.detection_model, self.scaler,
+                    self.image, scale, step, y_crop, self.detection_model, self.saver, self.scaler,
                 ))
                 results.append(result)
             proposed_regions = list(chain(*[r.get() for r in results]))
@@ -232,11 +198,19 @@ class Detector(object):
                 self.scales, self.y_crops):
                 result = _find_proposed_regions(self.image,
                     scale, step, y_crop,
-                    self.detection_model, self.scaler)
+                    self.detection_model, self.saver, self.scaler)
                 proposed_regions.extend(result)
         print("{} proposed regions".format(len(proposed_regions)))
-        if proposed_regions:
-            self.proposed_regions = proposed_regions
+
+        # Run the second classifier on proposed images
+        # 1 == vehicle, 0 == non-vehicle
+        _images = np.array([pr['proposed_image'] for pr in proposed_regions])
+        if len(_images) > 0:
+            _labels = self.predict(_images)
+            filtered_regions = [_proposed_region['corners'] for _label, _proposed_region in zip(_labels, proposed_regions) if _label]
+            if filtered_regions:
+                print("{} accepted regions".format(len(filtered_regions)))
+                self.proposed_regions = filtered_regions
 
     def update_heatmap(self):
         current_heatmap = np.zeros_like(self.heatmap)
