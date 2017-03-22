@@ -1,8 +1,9 @@
 # Vehicle Detection
 
-In this project, I wrote a pipeline to detect and track vehicles in a video. Detection uses an ensemble classifier. Detector first produces proposals using a fast classifier - Linear SVM-. Then the proposals are evaluated by a second classifier, a convolutional neural network, for validation. An ensemble method greatly reduces the frequency of false positives. The ensemble method passes the accepted proposals onto the heatmap, which is further filtered by its intensity. The heatmap acts as a memory cell - keeping the detection in memory through weighted averages but only exposes areas that are _bright_ enough pre-determined by some threshold.
+In this project, I wrote a pipeline to detect and track vehicles in a video. Detection uses an ensemble classifier. Detector first produces proposals using a fast classifier - [Linear SVM](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/src/train.py#L45)-. Then the proposals are evaluated by a second classifier, [a convolutional neural network](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/src/train.py#L186), for validation. An ensemble method greatly reduces the frequency of false positives. The ensemble method passes the accepted proposals onto the heatmap, which is further filtered by its intensity. The heatmap acts as a memory cell - keeping the detection in memory through weighted averages but only exposes areas that are _bright_ enough pre-determined by some threshold.
 
 ## Create a Feature Space and Train the Classifier
+
 Training the pipeline starts generating HOG features and color histogram features followed by fitting a binary linear SVM model. I shuffle images to combat overfitting, which seems to be a problem because the dataset consists of identical / similar images. The data contains cars vs non-car images. I also included false-positives that I identified at the test time, which helped a great deal. Last, the features are normalized both at training and test time.
 
 Because the search pipeline uses an exhaustive search windowing each image, HOG features in combination with a linear classifier is the feasible choice from a computational perspective.
@@ -11,7 +12,7 @@ Second, I trained a convolutional neural network to validate the regional propos
 
 ## Object Recognition
 
-Similar to the last project, the `Detector` class processes each image and identifies regions that are likely to contain a car.
+Similar to the last project, the [`Detector`](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/src/search.py#L130) class processes each image and identifies regions that are likely to contain a car.
 
 ```
 def process(self, img):
@@ -46,6 +47,12 @@ Subsequently, I applied a threshold to eliminate the false positives. Threshold 
 
 Because applying multiple sliding windows are expensive, I do this in a multi-threaded way. To speed things further, `_find_proposed_regions` method computes the HOG features only once per image.
 
-The pipeline produces the following for each image:
+The pipeline produces the following:
 
-![Pipeline]()
+i) region proposals and accepted regions
+ii) heatmap / memory
+iii) thresholded heatmap
+iv) labels
+
+![Pipeline](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/writeup_images/pipe1.png)
+![Pipeline](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/writeup_images/pipe2.png)
