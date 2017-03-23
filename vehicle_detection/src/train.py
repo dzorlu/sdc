@@ -29,7 +29,7 @@ NB_FILTERS = 16
 #input channels
 INPUT_CHANNELS = 3
 # number of hidden layers
-NB_HIDDEN = 128
+NB_HIDDEN = 64
 # Learning Rate
 LR = 0.001
 NB_CLASSES = 2
@@ -60,7 +60,7 @@ def train_svm_model(X,y):
     save_model(svc,"linear_svm")
 
 #  Models.
-def build_cnn(data, one_hot_y, loss_beta = 0.01):
+def build_cnn(data, one_hot_y, loss_beta = 0.001):
     # Variables.
     # For saving and optimizer.
     global_step = tf.Variable(0, name="global_step")
@@ -76,6 +76,8 @@ def build_cnn(data, one_hot_y, loss_beta = 0.01):
     layer3_weights = tf.Variable(tf.truncated_normal(
       [IMAGE_SIZE // 4 * IMAGE_SIZE // 4 * NB_FILTERS, NB_HIDDEN], stddev=0.1), name="layer3_weights")
     l2_layer3 = loss_beta * tf.nn.l2_loss(layer3_weights)
+    tf.add_to_collection("loss", l2_layer3)
+
     layer3_biases = tf.Variable(tf.constant(1.0, shape=[NB_HIDDEN]), name="layer3_biases")
     layer4_weights = tf.Variable(tf.truncated_normal(
       [NB_HIDDEN, NB_CLASSES], stddev=0.1), name="layer4_weights")
@@ -130,6 +132,8 @@ def train_cnn(gen, X_val, y_val):
     # loss
     cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, one_hot_y)
     loss_operation = tf.reduce_mean(cross_entropy)
+    _regulization = tf.get_collection("loss")[0]
+    loss_operation += _regulization
     #tf.summary.scalar('learning_rate', loss_operation)
     #loss_operation += l2_layer3
     # accuracy

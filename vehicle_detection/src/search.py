@@ -16,7 +16,7 @@ from .preprocessing import *
 MODEL_PATH = "saved_models/"
 CHECK_POINT_NAME = "model.ckpt"
 Q_SIZE = 4
-DEBUG = True
+DEBUG = False
 MULTIPROCESSING = True
 COLLECT_DATA = True
 Y_CROP_TOP = 375
@@ -265,19 +265,19 @@ class Detector(object):
         return img
 
     def show_frame(self):
+        n = 4
         plt.figure(figsize=(20,10))
-        plt.subplot(5,1,1)
+        plt.subplot(n,1,1)
         self.show_proposed_regions()
-        plt.subplot(5,1,2)
+        plt.subplot(n,1,2)
         self.show_accepted_regions()
-        plt.subplot(5,1,3)
-        self.show_heatmap()
-        plt.subplot(5,1,4)
+        # plt.subplot(5,1,3)
+        # self.show_heatmap()
+        plt.subplot(n,1,3)
         self.show_masked_heatmap()
-        plt.subplot(5,1,5)
+        plt.subplot(n,1,4)
         self.show_labeled_image()
         plt.show()
-
 
     def show_heatmap(self):
         plt.imshow(self.heatmap,cmap='gray')
