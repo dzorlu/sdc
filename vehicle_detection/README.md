@@ -68,7 +68,7 @@ For more details please see the [Jupyter notebook](https://github.com/dzorlu/sdc
 
 ## Results
 
-[Vehicle Tracking](https://youtu.be/9cYdwWCOj0w)
+[Vehicle Tracking](https://youtu.be/mzUvJ4lDocc)
 
 ## Next Steps
 There is some additional work to be done in order to make the exposed regions more stable. Because parameters are hand-tuned, I suspect that too much of it would not generalize well to other videos. Secondly, I would like to try out state-of-art localization / object detection methods such as [R-CNN](https://arxiv.org/abs/1504.08083) or apply more classical object-tracking methods Kalman Filters etc.
