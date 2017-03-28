@@ -46,7 +46,7 @@ I hand-tuned the structure to accommodate enough number of sliding windows acros
 
 ![Windows](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/images/Screen%20Shot%202017-03-17%20at%202.30.53%20PM.png)
 
-In addition, the detector evaluates the SVM predictions in terms [confidence](http://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html#sklearn.svm.LinearSVC.decision_function) and accepts proposals that have high confidence scores in terms of distance to the hyperplane.
+In addition, the detector evaluates the SVM predictions in terms of [confidence](http://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html#sklearn.svm.LinearSVC.decision_function) and accepts proposals that have high confidence scores in terms of distance to the hyperplane.
 
 `Detector` is stateful and serves as a memory cell to track cumulative heatmap over consecutive frames. Here, I apply a decay function to update the heatmap with new information. Pixels that are proposed by multiple windows get assigned a higher weight through `power` parameter - I apply an exponential boosting factor to the number of detections for a given pixel.
 
