@@ -56,11 +56,11 @@ Because applying multiple sliding windows are expensive, I do this in a multi-th
 
 The pipeline produces the following - from left to right and top to bottom.
 
-  i) region proposals
-  ii) accepted regions
-  iii) heatmap / memory
-  iv) thresholded heatmap
-  v) labels
+>  i) region proposals
+>  ii) accepted regions
+>  iii) heatmap / memory
+>  iv) thresholded heatmap
+>  v) labels
 
 ![Pipeline](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/writeup_images/pipe.png)
 
