@@ -9,10 +9,11 @@ from shutil import copy2
 
 import uuid
 
-ORIENT = 9 # number of bins
+ORIENT = 9 # number of bins. HOG orientations
 PIX_PER_CELL = 8
 CELL_PER_BLOCK = 2
 HOG_CHANNEL = [0,1,2] # Can be 0, 1, 2
+YUV_CHANNEL = True
 
 VEHICLE_IMG_FOLDER, NONVEHICLE_IMG_FOLDER = "training_images/vehicles", "training_images/non-vehicles"
 FALSE_POSITIVES = "training_images/false-positives"
@@ -45,6 +46,8 @@ def create_hog_features(img_path,
         return features, hog_image
     else:
         hog_features = []
+        if YUV_CHANNEL:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
 
         for i, channel in enumerate(hog_channel):
             features = hog(img[:,:,channel], orientations=orient, pixels_per_cell=(pix_per_cell, pix_per_cell),
@@ -56,6 +59,13 @@ def create_hog_features(img_path,
             return np.ravel(hog_features)
         else:
             return np.array(hog_features)
+
+def create_bin_spatial(img_path, size=(4, 4), path=True):
+    if path:
+        img = cv2.imread(img_path)
+    else:
+        img = img_path
+    return cv2.resize(img, size).ravel()
 
 def create_color_hist(img_path, nbins=32, bins_range=(0, 256),path=True):
     # Achtung -> imread reads as BGR
@@ -110,14 +120,24 @@ def create_feature_space_for_fast_classifier():
     print("Created HOG Features...")
 
     ## Created Color Histograms
-    color_vehicles = np.array([create_color_hist(_img) for _img in vehicle_img_path])
-    color_non_vehicles = np.array([create_color_hist(_img) for _img in non_vehicle_img_path])
-    print("Created Color Histogram Features...")
+    # color_vehicles = np.array([create_color_hist(_img) for _img in vehicle_img_path])
+    # color_non_vehicles = np.array([create_color_hist(_img) for _img in non_vehicle_img_path])
+    # print("Created Color Histogram Features...")
 
-    vehicles = np.concatenate((hog_features_vehicles, color_vehicles),axis=1)
+    ## Created Spatial Features
+    spatial_vehicles = np.array([create_bin_spatial(_img) for _img in vehicle_img_path])
+    spatial_non_vehicles = np.array([create_bin_spatial(_img) for _img in non_vehicle_img_path])
+    print("Created Spatial Features...")
+
+    vehicles = np.concatenate((hog_features_vehicles, spatial_vehicles),axis=1)
     del hog_features_vehicles, color_vehicles
-    non_vehicles = np.concatenate((hog_features_non_vehicles, color_non_vehicles),axis=1)
+    non_vehicles = np.concatenate((hog_features_non_vehicles, spatial_non_vehicles),axis=1)
     del hog_features_non_vehicles, color_non_vehicles
+
+    # vehicles = np.concatenate((hog_features_vehicles, color_vehicles),axis=1)
+    # del hog_features_vehicles, color_vehicles
+    # non_vehicles = np.concatenate((hog_features_non_vehicles, color_non_vehicles),axis=1)
+    # del hog_features_non_vehicles, color_non_vehicles
 
     X = np.vstack((vehicles, non_vehicles)).astype(np.float64)
     y = np.hstack((np.ones(vehicles.shape[0]), np.zeros(non_vehicles.shape[0])))

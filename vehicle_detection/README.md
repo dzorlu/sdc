@@ -4,9 +4,18 @@ In this project, I wrote a pipeline to detect and track vehicles in a video. Det
 
 ## Create a Feature Space and Train the Classifier
 
-Training the pipeline starts generating HOG features and color histogram features followed by fitting a binary linear SVM model. I shuffle images to combat overfitting, which seems to be a problem because the dataset consists of identical / similar images. The data contains cars vs non-car images. I also included false-positives and false-positives that I identified at the test time, which helped a great deal. Last, the features are normalized both at training and test time.
+Training the pipeline starts generating [HOG features](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/src/preprocessing.py#L24) and spatial features followed by fitting a binary linear SVM model. I used all YUV channels to create the HOG features and hand-tuned the HOG parameters to get the best results. I used 4x4 spatial features. Other parameter values are given below.
 
-Because the search pipeline uses an exhaustive search windowing each image, HOG features in combination with a linear classifier is the feasible choice from a computational perspective. The prososed regions by SVM is subsequently evaluated by a CNN. Ensemble methods generally work well because the uncorrelated errors between models cancel each other out, which leads to more robust predictions.
+```
+ORIENT = 9 # number of bins
+PIX_PER_CELL = 8
+CELL_PER_BLOCK = 2
+HOG_CHANNEL = [0,1,2] #use all channels in YUV spectrum.
+```
+
+I shuffle images to combat overfitting, which seems to be a problem because the dataset consists of identical / similar images. The data contains cars vs non-car images. I also included false-positives and false-positives that I identified at the test time, which helped a great deal. Last, the features are normalized both at training and test time.
+
+Because the search pipeline uses an exhaustive search windowing each image, HOG features in combination with a linear classifier is the feasible choice from a computational perspective. The proposed regions by SVM is subsequently evaluated by a CNN. Ensemble methods generally work well because the uncorrelated errors between models cancel each other out, which leads to more robust predictions. In this particular case, the models evaluate different color spaces (YUV and BGR), which also helps with uncorrelated errors.
 
 ## Object Recognition
 
@@ -37,7 +46,7 @@ I hand-tuned the structure to accommodate enough number of sliding windows acros
 
 ![Windows](https://github.com/dzorlu/sdc/blob/master/vehicle_detection/images/Screen%20Shot%202017-03-17%20at%202.30.53%20PM.png)
 
-In addition, the detector evaluates the saturation histogram for region proposals to eliminate the false positives further. I used the saturation channel because it seems to segment the road vs non-road portions of the image pretty well.
+In addition, the detector evaluates the SVM predictions in terms [confidence](http://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html#sklearn.svm.LinearSVC.decision_function) and accepts proposals that have high confidence scores in terms of distance to the hyperplane.
 
 `Detector` is stateful and serves as a memory cell to track cumulative heatmap over consecutive frames. Here, I apply a decay function to update the heatmap with new information. Pixels that are proposed by multiple windows get assigned a higher weight through `power` parameter - I apply an exponential boosting factor to the number of detections for a given pixel.
 

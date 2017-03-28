@@ -16,9 +16,9 @@ from .preprocessing import *
 MODEL_PATH = "saved_models/"
 CHECK_POINT_NAME = "model.ckpt"
 Q_SIZE = 4
-DEBUG = False
+DEBUG = True
 MULTIPROCESSING = True
-COLLECT_DATA = True
+COLLECT_DATA = False
 Y_CROP_TOP = 375
 
 
@@ -62,7 +62,7 @@ def _find_proposed_regions(img,
     # feature_vec is set to False because we sample from the HOG space
     _hog = create_hog_features(_img, path=False, feature_vec=False)
     proposed_regions = []
-    image_hist_feature = create_color_hist(_img, path=False).reshape(1,-1)
+    #image_hist_feature = create_color_hist(_img, path=False).reshape(1,-1)
     # if DEBUG:
     #     print("{} {} Img size {}".format(scale, y_crop, _img.shape))
     #     print("{} {} nb_y_blocks {}, ".format(scale, y_crop, nb_y_blocks))
@@ -82,32 +82,35 @@ def _find_proposed_regions(img,
             xleft = x * pix_per_cell
             ytop = y * pix_per_cell
 
-            # Extract the color histogram
-            _img_hist = cv2.resize(_img[ytop:ytop+window, xleft:xleft+window], (window,window))
-            hist_features = create_color_hist(_img_hist, path=False).reshape(1,-1)
-            features = np.concatenate((hog_features, hist_features),axis=1)
+            # Extract the spatial features
+            _img_spatial = cv2.resize(_img[ytop:ytop+window, xleft:xleft+window], (window,window))
+            #hist_features = create_color_hist(_img_hist, path=False).reshape(1,-1)
+            spatial_features = create_bin_spatial(_img_spatial, path=False).reshape(1,-1)
 
-            _thresholded = hls_thresholding(_img_hist,2)
+            features = np.concatenate((hog_features, spatial_features),axis=1)
+            #_thresholded = hls_thresholding(_img_hist,2)
 
             # Scale features and make a prediction
             test_features = scaler.transform(features)
-            if svc.predict(test_features) and _thresholded <= 0.75:
 
+            # Accept predctions with high confidence
+            if svc.decision_function(test_features) >= 1.0:
+                #print(svc.decision_function(test_features))
                 if COLLECT_DATA:
                     # Save randomly to train on false positives later on
                     if np.random.uniform(0,1) < 0.1:
                         img_name = uuid.uuid4().hex
                         # Convert back to RGB
-                        img_to_save = cv2.cvtColor(_img_hist, cv2.COLOR_BGR2RGB)
+                        img_to_save = cv2.cvtColor(_img_spatial, cv2.COLOR_BGR2RGB)
                         cv2.imwrite("images/{}.png".format(img_name),img_to_save)
 
                 xbox_left = np.int(xleft * scale)
                 ytop_draw = np.int(ytop * scale)
                 win_draw = np.int(window * scale)
 
-                _padding = 25
+                _padding = 5
                 proposed_regions.append({
-                    'proposed_image': _img_hist,
+                    'proposed_image': _img_spatial,
                     # Tuple denoting the corners
                     'corners':
                         (xbox_left,
@@ -138,7 +141,7 @@ class Detector(object):
         self.heatmap = np.zeros(image_size).astype(np.float)
         self.masked_heatmap = np.zeros(image_size).astype(np.float)
         self.decay = 0.2 # decrement at each step
-        self.threshold = 1.2
+        self.threshold = 5.0
         self.power = 2 # the weight placed on new observations with overlapping windows
         self.proposed_regions = []
         self.accepted_regions = []
