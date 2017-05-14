@@ -1,8 +1,7 @@
 # Unscented Kalman Filter Project
-Implementation of an Unscented Kalman Filter. 
+C++ implementation of unscented kalman filter. 
 
-In short, UKFs tackle non-linearities in process and measurement by approximating distributions through the use of sigma points.
-
+UKFs approximate process and measurement transformations through the use of sigma points.    
 
 ---
 
