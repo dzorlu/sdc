@@ -1,5 +1,8 @@
-# Unscented Kalman Filter Project Starter Code
-Self-Driving Car Engineer Nanodegree Program
+# Unscented Kalman Filter Project
+Implementation of an Unscented Kalman Filter. 
+
+In short, UKFs tackle non-linearities in process and measurement by approximating distributions through the use of sigma points.
+
 
 ---
 
@@ -15,20 +18,19 @@ Self-Driving Car Engineer Nanodegree Program
 2. Make a build directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./UnscentedKF path/to/input.txt path/to/output.txt`. You can find
-   some sample inputs in 'data/'.
-    - eg. `./UnscentedKF ../data/obj_pose-laser-radar-synthetic-input.txt`
 
-## RMSE 
 
-0.0629184
-0.0842191
-0.333776
-0.218693
+## Reported RMSE 
 
-## NIPS
+    0.0629184
+    0.0842191
+    0.333776
+    0.218693
 
-![Lidar](img/lidar_nips.png)
+## NIS
 
-![Ridar](img/radar_nips.png)
+![Lidar](img/lidar_nis.png)
+
+![Ridar](img/radar_nis.png)
  
  
