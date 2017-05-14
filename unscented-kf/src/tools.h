@@ -3,6 +3,10 @@
 #include <vector>
 #include "Eigen/Dense"
 
+using Eigen::VectorXd;
+using Eigen::MatrixXd;
+using std::vector;
+
 class Tools {
 public:
   /**
@@ -20,6 +24,7 @@ public:
   */
   Eigen::VectorXd CalculateRMSE(const std::vector<Eigen::VectorXd> &estimations, const std::vector<Eigen::VectorXd> &ground_truth);
 
+  static VectorXd ToCartesian(const VectorXd& polar);
 };
 
 #endif /* TOOLS_H_ */

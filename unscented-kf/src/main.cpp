@@ -159,7 +159,8 @@ int main(int argc, char* argv[]) {
 
 
   for (size_t k = 0; k < number_of_measurements; ++k) {
-    // Call the UKF-based fusion
+    // Call the UKF-based
+    cout << "Step:" << k << endl;
     ukf.ProcessMeasurement(measurement_pack_list[k]);
 
     // timestamp
