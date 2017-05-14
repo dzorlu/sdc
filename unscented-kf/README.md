@@ -21,10 +21,10 @@ UKFs approximate process and measurement transformations through the use of sigm
 
 ## Reported RMSE 
 
-    0.0629184
-    0.0842191
-    0.333776
-    0.218693
+    0.0641554
+    0.0877843
+    0.336986
+    0.224262
 
 ## NIS
 
