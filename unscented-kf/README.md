@@ -1,5 +1,5 @@
 # Unscented Kalman Filter Project
-C++ implementation of unscented kalman filter. 
+C++ implementation of an unscented kalman filter. 
 
 UKFs approximate process and measurement transformations through the use of sigma points.    
 
