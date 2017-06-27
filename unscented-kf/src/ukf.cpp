@@ -9,12 +9,14 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using std::vector;
 
+
 /**
  * Initializes Unscented Kalman filter
  * CTRV Model
  * x_ = [px, py, vel, ang, ang_rate]
  */
 UKF::UKF() {
+  is_initialized_ = false;
   n_x_ = 5;
   n_aug_ = 7;
   n_radar_ = 3;
@@ -228,9 +230,14 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     double v2 = sin(yaw)*v;
 
     // measurement model
-    Zsig(0,i) = sqrt(p_x*p_x + p_y*p_y);                        //r
-    Zsig(1,i) = atan2(p_y,p_x);                                 //phi
-    Zsig(2,i) = (p_x*v1 + p_y*v2 ) / sqrt(p_x*p_x + p_y*p_y);   //r_dot
+    double rs = sqrt(p_x*p_x + p_y*p_y);
+    if (rs < 1e-9) {
+      rs = 1e-9;
+    }
+
+    Zsig(0,i) = rs;                        //r
+    Zsig(1,i) = atan2(p_y,p_x);            //phi
+    Zsig(2,i) = (p_x*v1 + p_y*v2 ) / rs;   //r_dot
   }
   UpdateUKF(meas_package, Zsig, 3);
 
