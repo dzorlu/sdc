@@ -24,7 +24,7 @@ double dt = 0.2;
 const double Lf = 2.67;
 
 // reference velocity
-double ref_v = 20;
+double ref_v = 50;
 
 // state variables
 size_t x_start = 0;

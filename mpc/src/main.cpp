@@ -108,6 +108,7 @@ int main() {
           auto coeffs = polyfit(xv, yv, 3);
           // x, y = (0, 0) car coordinates
           double cte = polyeval(coeffs, 0);
+          // psi is also zero after transformation
           double epsi = atan(coeffs[1]);
 
           Eigen::VectorXd state(6);
