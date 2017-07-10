@@ -8,7 +8,7 @@
 
 using CppAD::AD;
 
-size_t N = 20;
+size_t N = 30;
 double dt = 0.2;
 
 // This value assumes the model presented in the classroom is used.
@@ -24,7 +24,7 @@ double dt = 0.2;
 const double Lf = 2.67;
 
 // reference velocity
-double ref_v = 50;
+double ref_v = 40;
 
 // state variables
 size_t x_start = 0;
@@ -52,19 +52,19 @@ class FG_eval {
     // The part of the cost based on the reference state.
     for (int t = 0; t < N; t++) {
       fg[0] += 1e+2 * CppAD::pow(vars[cte_start + t], 2);
-      fg[0] += 1 * CppAD::pow(vars[epsi_start + t], 2);
+      fg[0] += 1e+2 * CppAD::pow(vars[epsi_start + t], 2);
       // ref_v is reference speed
-      fg[0] += 1e-3 * CppAD::pow(vars[v_start + t] - ref_v, 2);
+      fg[0] += 5e-1 * CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
     // Minimize the use of actuators.
     for (int t = 0; t < N - 1; t++) {
-      fg[0] += 1e-4 * CppAD::pow(vars[delta_start + t], 2);
-      fg[0] += 1e-4 * CppAD::pow(vars[a_start + t], 2);
+      fg[0] += 1e+5 * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += 1e-1 * CppAD::pow(vars[a_start + t], 2);
     }
     // Minimize the value gap between sequential actuations.
     for (int t = 0; t < N - 2; t++) {
-      fg[0] += 1e-4 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-      fg[0] += 1e-4 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+      fg[0] += 1e+5 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += 1e+0 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     // Setup constraints
