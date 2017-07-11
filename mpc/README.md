@@ -29,9 +29,20 @@ The update equations for our model used to predict future states are:
 ```
 
 ## MPC
-The algorithm fits a third degree polynomial to the incoming waypoints, which in turn is fed into the optimizer in `MPC.solver` to determine the steering and throttle variables that minimize the cost function over time steps. Number of time steps and the interval are hyper-parameters to the model and present a tradeoff. N = 20 and dt = 0.2 are chosen empirically and robust to high speeds. At each step, the process is repeated. Only the actuator parameters from the first time steps are kept and rest are discarded. The server passes the location information in map coordinates. Like in the previous projects, converting the map coordinates to vehicle coordinates to make the calculations much easier.
+The algorithm fits a third degree polynomial to the incoming waypoints that were in turn transformed into vehicle space. Fitted polynomial in turn is fed into the optimizer in `MPC.solver` to determine the steering and throttle variables that minimize the cost function over time steps. Number of time steps and the interval are hyper-parameters to the model and present a tradeoff. N = 20 and dt = 0.2 are chosen empirically and robust to high speeds. At each step, the process is repeated. Only the actuator parameters from the first time steps are kept and rest are discarded. The server passes the location information in map coordinates. Like in the previous projects, converting the map coordinates to vehicle coordinates to make the calculations much easier.
 
 ## Simulating latency
 In order to simulate a real-time system we need to inject some latency. In this exercise, a latency of 100 ms is assumed between to pass the MPC output and the vehicle recognition of the output. The introduction of latency renders the parameters set above insufficient.
 
-Latency is akin to introducing more noise into the system. In turn, I turned up the regularization parameters to minimize the jerk between timesteps. In particular, I dialed up the regularization parameter imposed on the difference between subsequent actuator values as well as actuator values themselves. I also increased the `N` parameter in order to provide more data into the optimization function.
+Latency is akin to introducing more noise into the system. In turn, I turned up the regularization parameters to minimize the jerk between timesteps. In particular, I dialed up the regularization parameter imposed on the difference between subsequent actuator values as well as actuator values themselves. I also increased the `N` parameter -number of steps- to 30 in order to provide more data into the optimization function.
+
+On top of the changes above, I took the moving average of the steering commands to provide further smoothing. 
+
+```
+double delta = 0;
+int z = 3;
+for (int i = 0; i < z; i++) {
+ delta += solution.x[delta_start+i];
+}
+result.push_back(delta/z);
+```

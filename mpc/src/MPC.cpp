@@ -24,7 +24,7 @@ double dt = 0.2;
 const double Lf = 2.67;
 
 // reference velocity
-double ref_v = 40;
+double ref_v = 50;
 
 // state variables
 size_t x_start = 0;
@@ -51,7 +51,7 @@ class FG_eval {
     fg[0] = 0;
     // The part of the cost based on the reference state.
     for (int t = 0; t < N; t++) {
-      fg[0] += 1e+2 * CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += 5e+2 * CppAD::pow(vars[cte_start + t], 2);
       fg[0] += 1e+2 * CppAD::pow(vars[epsi_start + t], 2);
       // ref_v is reference speed
       fg[0] += 5e-1 * CppAD::pow(vars[v_start + t] - ref_v, 2);
@@ -229,7 +229,15 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   vector<double> result;
 
-  result.push_back(solution.x[delta_start]);
+  //result.push_back(solution.x[delta_start]);
+
+  double delta = 0;
+  int z = 3;
+  for (int i = 0; i < z; i++) {
+   delta += solution.x[delta_start+i];
+  }
+  result.push_back(delta/z);
+
   result.push_back(solution.x[a_start]);
 
   // where MPC is going
