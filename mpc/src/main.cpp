@@ -89,6 +89,8 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double delta = j[1]["steering_angle"];
+          double a = j[1]["throttle"];
 
           vector<double> _x;
           vector<double> _y;
@@ -112,7 +114,14 @@ int main() {
           double epsi = atan(coeffs[1]);
 
           Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+          //state << 0, 0, 0, v, cte, epsi;
+          // Peoject state forward
+          state[0] = v * cos(0) * 0.1;
+          state[1] = v * sin(0) * 0.1;
+          state[2] = (-v / 2.67) * delta * 0.1;
+          state[3] = v + a * 0.1;
+          state[4] = cte + v*sin(epsi)*0.1;
+          state[5] = epsi - (v / 2.67) * delta * 0.1;
           auto results = mpc.Solve(state, coeffs);
           std::cout << "steer value output " << -results[0] << std::endl;
           std::cout << "throttle  output " << results[1] << std::endl;

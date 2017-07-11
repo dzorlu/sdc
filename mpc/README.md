@@ -34,15 +34,6 @@ The algorithm fits a third degree polynomial to the incoming waypoints that were
 ## Simulating latency
 In order to simulate a real-time system we need to inject some latency. In this exercise, a latency of 100 ms is assumed between to pass the MPC output and the vehicle recognition of the output. The introduction of latency renders the parameters set above insufficient.
 
-Latency is akin to introducing more noise into the system. In turn, I turned up the regularization parameters to minimize the jerk between timesteps. In particular, I dialed up the regularization parameter imposed on the difference between subsequent actuator values as well as actuator values themselves. I also increased the `N` parameter -number of steps- to 30 in order to provide more data into the optimization function.
+To address the latency, the prospective position of the car is estimated based on its current speed and heading direction by propagating the position of the car forward. The NMPC trajectory is then determined by solving the control problem starting from that position.
 
-On top of the changes above, I took the moving average of the steering commands to provide further smoothing. 
-
-```
-double delta = 0;
-int z = 3;
-for (int i = 0; i < z; i++) {
- delta += solution.x[delta_start+i];
-}
-result.push_back(delta/z);
-```
+Secondly, latency is akin to introducing more noise into the system. In turn, I turned up the regularization parameters to minimize the jerk between timesteps. In particular, I dialed up the regularization parameter imposed on the difference between subsequent actuator values as well as actuator values themselves.

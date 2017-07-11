@@ -8,8 +8,8 @@
 
 using CppAD::AD;
 
-size_t N = 30;
-double dt = 0.2;
+size_t N = 10;
+double dt = 0.1;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -51,19 +51,19 @@ class FG_eval {
     fg[0] = 0;
     // The part of the cost based on the reference state.
     for (int t = 0; t < N; t++) {
-      fg[0] += 5e+2 * CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += 7e+2 * CppAD::pow(vars[cte_start + t], 2);
       fg[0] += 1e+2 * CppAD::pow(vars[epsi_start + t], 2);
       // ref_v is reference speed
-      fg[0] += 5e-1 * CppAD::pow(vars[v_start + t] - ref_v, 2);
+      fg[0] += 1e+0 * CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
     // Minimize the use of actuators.
     for (int t = 0; t < N - 1; t++) {
-      fg[0] += 1e+5 * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += 2e+5 * CppAD::pow(vars[delta_start + t], 2);
       fg[0] += 1e-1 * CppAD::pow(vars[a_start + t], 2);
     }
     // Minimize the value gap between sequential actuations.
     for (int t = 0; t < N - 2; t++) {
-      fg[0] += 1e+5 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += 1e+4 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
       fg[0] += 1e+0 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
@@ -229,15 +229,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   vector<double> result;
 
-  //result.push_back(solution.x[delta_start]);
-
-  double delta = 0;
-  int z = 3;
-  for (int i = 0; i < z; i++) {
-   delta += solution.x[delta_start+i];
-  }
-  result.push_back(delta/z);
-
+  result.push_back(solution.x[delta_start]);
   result.push_back(solution.x[a_start]);
 
   // where MPC is going
